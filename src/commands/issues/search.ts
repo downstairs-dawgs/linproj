@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { readConfig } from '../../lib/config.ts';
 import {
   LinearClient,
-  listIssues,
+  searchIssues,
   getViewer,
   type IssueFilter,
   type StateType,
@@ -28,31 +28,28 @@ function parsePriority(value: string): number {
   return num;
 }
 
-interface ListOptions {
+interface SearchOptions {
   team?: string;
   state?: string;
   stateType?: string;
   assignee?: string;
-  project?: string;
-  label?: string[];
   priority?: string;
   limit?: string;
   json?: boolean;
 }
 
-export function createListCommand(): Command {
-  return new Command('list')
-    .description('List issues')
+export function createSearchCommand(): Command {
+  return new Command('search')
+    .description('Search for issues by text')
+    .argument('<query>', 'Search query')
     .option('-t, --team <team>', 'Filter by team key')
     .option('-s, --state <state>', 'Filter by state name')
     .option('--state-type <type>', 'Filter by state type (backlog, unstarted, started, completed, canceled)')
     .option('-a, --assignee <assignee>', 'Filter by assignee (me, none, or email)')
-    .option('-p, --project <project>', 'Filter by project name')
-    .option('-l, --label <label...>', 'Filter by label(s)')
     .option('--priority <priority>', 'Filter by priority (urgent, high, medium, low, none, or 0-4)')
-    .option('-n, --limit <number>', 'Maximum number of issues to show', '50')
+    .option('-n, --limit <number>', 'Maximum results', '25')
     .option('--json', 'Output as JSON')
-    .action(async (options: ListOptions) => {
+    .action(async (query: string, options: SearchOptions) => {
       const config = await readConfig();
 
       if (!config.auth) {
@@ -61,7 +58,7 @@ export function createListCommand(): Command {
         process.exit(1);
       }
 
-      const limit = parseInt(options.limit ?? '50', 10);
+      const limit = parseInt(options.limit ?? '25', 10);
       if (isNaN(limit) || limit < 1) {
         console.error('Error: Invalid limit value');
         process.exit(1);
@@ -101,14 +98,6 @@ export function createListCommand(): Command {
         }
       }
 
-      if (options.project) {
-        filter.project = { name: { eq: options.project } };
-      }
-
-      if (options.label && options.label.length > 0) {
-        filter.labels = { name: { in: options.label } };
-      }
-
       if (options.priority) {
         try {
           const priorityValue = parsePriority(options.priority);
@@ -119,12 +108,18 @@ export function createListCommand(): Command {
         }
       }
 
-      const issues = await listIssues(
+      const issues = await searchIssues(
         client,
+        query,
         Object.keys(filter).length > 0 ? filter : undefined,
         limit
       );
 
       outputIssues(issues, options.json ?? false);
+
+      if (!options.json && issues.length > 0) {
+        console.log();
+        console.log(`Found ${issues.length} issue${issues.length === 1 ? '' : 's'} matching "${query}"`);
+      }
     });
 }

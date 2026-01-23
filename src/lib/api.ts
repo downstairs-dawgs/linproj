@@ -75,7 +75,19 @@ export interface User {
   email: string;
 }
 
+export type StateType = 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled';
+
 export interface IssueState {
+  name: string;
+  type: StateType;
+}
+
+export interface IssueLabel {
+  name: string;
+  color: string;
+}
+
+export interface IssueProject {
   name: string;
 }
 
@@ -84,9 +96,34 @@ export interface Issue {
   identifier: string;
   title: string;
   description?: string;
+  url: string;
   state: IssueState;
   priority: number;
+  createdAt: string;
   updatedAt: string;
+  team?: {
+    key: string;
+    name: string;
+  };
+  assignee?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  labels?: {
+    nodes: IssueLabel[];
+  };
+  project?: IssueProject;
+}
+
+// Filter types for querying issues
+export interface IssueFilter {
+  team?: { key?: { eq: string } };
+  state?: { name?: { eq: string }; type?: { eq: StateType } };
+  assignee?: { id?: { eq: string }; email?: { eq: string }; null?: boolean };
+  project?: { name?: { eq: string } };
+  labels?: { name?: { in: string[] } };
+  priority?: { eq?: number; in?: number[] };
 }
 
 export interface Team {
@@ -123,6 +160,22 @@ export interface CreateIssueResponse {
 export interface DeleteIssueResponse {
   issueDelete: {
     success: boolean;
+  };
+}
+
+export interface IssueResponse {
+  issue: Issue | null;
+}
+
+export interface IssuesResponse {
+  issues: {
+    nodes: Issue[];
+  };
+}
+
+export interface IssueSearchResponse {
+  searchIssues: {
+    nodes: Issue[];
   };
 }
 
@@ -246,4 +299,102 @@ export async function deleteIssue(
     id: issueId,
   });
   return result.issueDelete.success;
+}
+
+// Issue fields fragment for consistent field selection
+const ISSUE_FIELDS = `
+  id
+  identifier
+  title
+  description
+  url
+  priority
+  createdAt
+  updatedAt
+  state {
+    name
+    type
+  }
+  team {
+    key
+    name
+  }
+  assignee {
+    id
+    name
+    email
+  }
+  labels {
+    nodes {
+      name
+      color
+    }
+  }
+  project {
+    name
+  }
+`;
+
+export async function getIssue(
+  client: LinearClient,
+  identifier: string
+): Promise<Issue | null> {
+  const query = `
+    query($identifier: String!) {
+      issue(id: $identifier) {
+        ${ISSUE_FIELDS}
+      }
+    }
+  `;
+  try {
+    const result = await client.query<IssueResponse>(query, { identifier });
+    return result.issue;
+  } catch (err) {
+    // Linear returns an error for nonexistent issues instead of null
+    if (err instanceof LinearAPIError && err.message.includes('Entity not found')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export async function listIssues(
+  client: LinearClient,
+  filter?: IssueFilter,
+  first = 50
+): Promise<Issue[]> {
+  const query = `
+    query($first: Int!, $filter: IssueFilter) {
+      issues(first: $first, filter: $filter) {
+        nodes {
+          ${ISSUE_FIELDS}
+        }
+      }
+    }
+  `;
+  const result = await client.query<IssuesResponse>(query, { first, filter });
+  return result.issues.nodes;
+}
+
+export async function searchIssues(
+  client: LinearClient,
+  searchQuery: string,
+  filter?: IssueFilter,
+  first = 25
+): Promise<Issue[]> {
+  const query = `
+    query($term: String!, $first: Int!, $filter: IssueFilter) {
+      searchIssues(term: $term, first: $first, filter: $filter) {
+        nodes {
+          ${ISSUE_FIELDS}
+        }
+      }
+    }
+  `;
+  const result = await client.query<IssueSearchResponse>(query, {
+    term: searchQuery,
+    first,
+    filter,
+  });
+  return result.searchIssues.nodes;
 }
