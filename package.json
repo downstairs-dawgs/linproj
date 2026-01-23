@@ -1,0 +1,23 @@
+{
+  "name": "linproj",
+  "version": "0.1.0",
+  "description": "CLI for Linear",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --compile --outfile build/linproj",
+    "build:release": "bun build ./src/index.ts --compile --minify --outfile build/linproj",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
