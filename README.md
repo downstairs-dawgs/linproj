@@ -4,19 +4,8 @@ CLI for Linear.
 
 ## Install
 
-**macOS (Apple Silicon):**
 ```bash
-curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-darwin-arm64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
-```
-
-**Linux (x64):**
-```bash
-curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-linux-amd64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
-```
-
-**Linux (ARM64):**
-```bash
-curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-linux-arm64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
+curl -fsSL "https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-$(uname -s)-$(uname -m)" -o ~/.local/bin/linproj && chmod +x ~/.local/bin/linproj
 ```
 
 Or build from source:
