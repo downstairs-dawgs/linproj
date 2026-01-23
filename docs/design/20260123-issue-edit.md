@@ -1,17 +1,19 @@
 # Issue Edit: Modify Existing Issues
 
 **Date:** 2026-01-23
-**Goal:** Enable editing of existing issues via CLI, optimized for AI agent workflows
+**Goal:** Enable editing of existing issues via CLI
 
 ## Overview
 
-This design covers the `issues edit` command, which allows modifying existing Linear issues. The primary use case is AI agents (e.g., Claude Code) programmatically updating issues, with secondary support for human CLI users.
+This design covers the `issues edit` command, which allows modifying existing Linear issues. The interface is designed to be ergonomic for both humans and AI agents.
 
 **Design principles:**
-1. **AI-first**: Optimize for programmatic use over human ergonomics
+1. **Human and AI friendly**: Equally usable by humans at a terminal and AI agents programmatically
 2. **Single composable format**: YAML frontmatter for structured fields, markdown body for description
 3. **Partial updates**: Only specified fields are modified
 4. **Multiple input modes**: Piped stdin, flags, and interactive editor
+
+**Input priority:** When both stdin and CLI flags are provided, CLI flags take precedence and override any conflicting fields from stdin. This allows piping a base template while overriding specific fields.
 
 ---
 
@@ -60,45 +62,48 @@ New description, replacing the old one entirely.
 EOF
 ```
 
-### Flag-Based Input (Quick Edits)
+### Flag-Based Input
 
-For simple single-field updates:
+For quick edits directly from the command line:
 
 ```bash
-# Update single fields
+# Update multiple fields in one command (typical usage)
+linproj issues edit PROJ-123 --state "In Progress" --assignee me --priority high
+linproj issues edit PROJ-123 --state "Done" --assignee none
+linproj issues edit PROJ-123 --title "New title" --label bug --label urgent
+
+# Single field updates
 linproj issues edit PROJ-123 --title "New title"
 linproj issues edit PROJ-123 --state "In Progress"
 linproj issues edit PROJ-123 --assignee jane@example.com
-linproj issues edit PROJ-123 --assignee me
-linproj issues edit PROJ-123 --assignee none
-linproj issues edit PROJ-123 --priority high
-linproj issues edit PROJ-123 --priority 2
+linproj issues edit PROJ-123 --assignee me      # Assign to yourself
+linproj issues edit PROJ-123 --assignee none    # Unassign
+linproj issues edit PROJ-123 --priority high    # Or: urgent, medium, low, none
+linproj issues edit PROJ-123 --priority 2       # Numeric: 0=none, 1=urgent, 2=high, 3=medium, 4=low
 
 # Labels (replaces all existing labels)
-linproj issues edit PROJ-123 --label bug
 linproj issues edit PROJ-123 --label bug --label urgent
-linproj issues edit PROJ-123 --label ''  # Remove all labels
-
-# Multiple fields
-linproj issues edit PROJ-123 --state "Done" --assignee none
+linproj issues edit PROJ-123 --label ''         # Remove all labels
 
 # Output options
-linproj issues edit PROJ-123 --title "New" --json
-linproj issues edit PROJ-123 --title "New" --quiet
+linproj issues edit PROJ-123 --state "Done" --json     # Output updated issue as JSON
+linproj issues edit PROJ-123 --state "Done" --quiet    # Suppress output
 ```
 
-### Interactive Mode (Human Users)
+### Interactive Mode
 
-Opens `$EDITOR` with current issue data pre-populated:
+Opens your preferred editor (`$EDITOR`, falling back to `vim`, then `nano`) with the current issue data pre-populated in frontmatter format. This is not a TUI - it simply opens a temp file in your editor, waits for you to save and close, then applies the changes.
 
 ```bash
-# Opens editor with issue in frontmatter format
+# Opens editor with issue in frontmatter format (default when no flags/stdin)
 linproj issues edit PROJ-123
 
-# Explicitly request interactive mode
+# Explicitly request interactive mode (useful when piping stdin but still want editor)
 linproj issues edit PROJ-123 --interactive
 linproj issues edit PROJ-123 -i
 ```
+
+**Temp file location:** The issue is written to a temp file at `$TMPDIR/linproj-edit-PROJ-123-XXXXXX.md` (where XXXXXX is a random suffix). The file is deleted after the edit is applied or cancelled.
 
 The editor opens with:
 
@@ -158,20 +163,63 @@ field: value
 | `dueDate` | string | ISO date (e.g., "2026-02-15") or `none` | |
 | `estimate` | number | Story points (depends on team settings) | |
 
+### Frontmatter Schema (TypeScript)
+
+```typescript
+interface EditFrontmatter {
+  title?: string;                    // Non-empty string
+  state?: string;                    // State name, looked up against team's workflow states
+  priority?: 'none' | 'urgent' | 'high' | 'medium' | 'low' | 0 | 1 | 2 | 3 | 4;
+  assignee?: 'me' | 'none' | string; // 'me', 'none', or email address
+  labels?: string[];                 // Label names, replaces all existing labels
+  project?: 'none' | string;         // Project name or 'none' to remove
+  team?: string;                     // Team key (e.g., "ENG")
+  dueDate?: 'none' | string;         // ISO date (YYYY-MM-DD) or 'none' to clear
+  estimate?: number;                 // Story points
+}
+```
+
+### Validation
+
+Validation happens in two phases:
+
+**Phase 1: Parse-time validation**
+- YAML must be syntactically valid
+- Field names must be in the allowed set (unknown fields are rejected)
+- Field types must match (e.g., `labels` must be an array, `estimate` must be a number)
+- `description` field is rejected (must use body)
+- `title` cannot be empty string if provided
+
+**Phase 2: API-time validation**
+- State name must exist in the issue's team workflow
+- Assignee email must correspond to a workspace member
+- Label names must exist in the team's label set
+- Project name must exist in the workspace
+
+Parse-time errors are reported immediately with the specific field and issue. API-time errors are reported after the API call with actionable messages (e.g., "State 'InvalidState' not found. Available states: Todo, In Progress, Done, Cancelled").
+
 ### Label Syntax
 
-Labels always replace all existing labels with the provided list:
+Labels always replace all existing labels with the provided list.
 
+**In YAML frontmatter:**
 ```yaml
 labels:
   - bug
   - backend
 ```
 
-To remove all labels, use an empty array:
+**Via CLI flags:**
+```bash
+linproj issues edit PROJ-123 --label bug --label backend
+```
 
+To remove all labels:
 ```yaml
 labels: []
+```
+```bash
+linproj issues edit PROJ-123 --label ''
 ```
 
 ### Description
@@ -191,6 +239,17 @@ Markdown is **supported**.
 - If nothing after `---`, description is not modified
 - To clear the description, provide empty body (whitespace-only after `---`)
 - `description` field in frontmatter is **not allowed** - use the body instead. The command will error if `description` appears in frontmatter.
+
+### Markdown Handling
+
+The description body is passed through to Linear's API as-is without parsing or validation. Linear handles markdown rendering.
+
+**Linear's markdown support** (based on Linear's documentation):
+- Standard CommonMark: headings, bold, italic, links, images, code blocks, lists, blockquotes
+- GitHub-flavored extensions: tables, task lists (`- [ ]`), strikethrough
+- Linear-specific: `@mentions` for users, issue references (`PROJ-123` auto-links)
+
+We do **not** validate or transform markdown. If you use unsupported syntax, Linear will render it as plain text. This keeps the CLI simple and avoids diverging from Linear's actual rendering behavior.
 
 ---
 
