@@ -11,15 +11,19 @@ import {
 } from '../../src/lib/api.ts';
 import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
 
-// Get auth for tests - uses stored config or env var
+// Get auth for tests
 async function getTestAuth(): Promise<ApiKeyAuth> {
-  // First try environment variable (for CI)
+  // In replay mode, use dummy key (auth headers aren't matched)
+  if (process.env.POLLY_MODE !== 'record') {
+    return { type: 'api-key', apiKey: 'test-key' };
+  }
+
+  // In record mode, need real credentials
   const envKey = process.env.LINEAR_API_KEY;
   if (envKey) {
     return { type: 'api-key', apiKey: envKey };
   }
 
-  // Fall back to stored config (for local dev)
   const config = await readConfig();
   if (config.auth?.type === 'api-key') {
     return config.auth;
