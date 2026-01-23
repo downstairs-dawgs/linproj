@@ -4,11 +4,24 @@ CLI for Linear.
 
 ## Install
 
-Download the binary from releases, or build from source:
-
+**macOS (Apple Silicon):**
 ```bash
-bun install
-bun run build
+curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-darwin-arm64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
+```
+
+**Linux (x64):**
+```bash
+curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-linux-amd64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
+```
+
+**Linux (ARM64):**
+```bash
+curl -fsSL https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-linux-arm64 -o /usr/local/bin/linproj && chmod +x /usr/local/bin/linproj
+```
+
+Or build from source:
+```bash
+bun install && bun run build
 ./build/linproj --help
 ```
 
@@ -23,6 +36,9 @@ linproj auth status
 
 # List your assigned issues
 linproj issues list
+
+# Create an issue
+linproj issues create --title "Fix bug" --assign-to-me
 
 # Logout
 linproj auth logout
