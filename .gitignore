@@ -11,9 +11,6 @@ build
 coverage
 *.lcov
 
-# test recordings (contain user data, regenerate with POLLY_MODE=record)
-tests/recordings/
-
 # logs
 logs
 _.log
