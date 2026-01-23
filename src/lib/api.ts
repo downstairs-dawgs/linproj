@@ -80,11 +80,19 @@ export interface IssueState {
 }
 
 export interface Issue {
+  id: string;
   identifier: string;
   title: string;
+  description?: string;
   state: IssueState;
   priority: number;
   updatedAt: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  key: string;
 }
 
 export interface ViewerResponse {
@@ -97,6 +105,33 @@ export interface AssignedIssuesResponse {
       nodes: Issue[];
     };
   };
+}
+
+export interface TeamsResponse {
+  teams: {
+    nodes: Team[];
+  };
+}
+
+export interface CreateIssueResponse {
+  issueCreate: {
+    success: boolean;
+    issue: Issue;
+  };
+}
+
+export interface DeleteIssueResponse {
+  issueDelete: {
+    success: boolean;
+  };
+}
+
+export interface CreateIssueInput {
+  teamId: string;
+  title: string;
+  description?: string;
+  priority?: number;
+  assigneeId?: string;
 }
 
 // Convenience methods
@@ -123,6 +158,7 @@ export async function getAssignedIssues(
       viewer {
         assignedIssues(first: $first) {
           nodes {
+            id
             identifier
             title
             state {
@@ -137,4 +173,77 @@ export async function getAssignedIssues(
   `;
   const result = await client.query<AssignedIssuesResponse>(query, { first });
   return result.viewer.assignedIssues.nodes;
+}
+
+export async function getTeams(client: LinearClient): Promise<Team[]> {
+  const query = `
+    query {
+      teams {
+        nodes {
+          id
+          name
+          key
+        }
+      }
+    }
+  `;
+  const result = await client.query<TeamsResponse>(query);
+  return result.teams.nodes;
+}
+
+export async function createIssue(
+  client: LinearClient,
+  input: CreateIssueInput
+): Promise<Issue> {
+  const mutation = `
+    mutation($input: IssueCreateInput!) {
+      issueCreate(input: $input) {
+        success
+        issue {
+          id
+          identifier
+          title
+          description
+          state {
+            name
+          }
+          priority
+          updatedAt
+        }
+      }
+    }
+  `;
+  const result = await client.query<CreateIssueResponse>(mutation, {
+    input: {
+      teamId: input.teamId,
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      assigneeId: input.assigneeId,
+    },
+  });
+
+  if (!result.issueCreate.success) {
+    throw new LinearAPIError('Failed to create issue');
+  }
+
+  return result.issueCreate.issue;
+}
+
+// For integration testing only - not exposed as CLI command
+export async function deleteIssue(
+  client: LinearClient,
+  issueId: string
+): Promise<boolean> {
+  const mutation = `
+    mutation($id: String!) {
+      issueDelete(id: $id) {
+        success
+      }
+    }
+  `;
+  const result = await client.query<DeleteIssueResponse>(mutation, {
+    id: issueId,
+  });
+  return result.issueDelete.success;
 }
