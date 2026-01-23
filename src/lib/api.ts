@@ -1,4 +1,4 @@
-import { Auth, getAuthHeader } from './config.ts';
+import { type Auth, getAuthHeader } from './config.ts';
 
 const LINEAR_API_URL = 'https://api.linear.app/graphql';
 
