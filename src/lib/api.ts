@@ -398,3 +398,178 @@ export async function searchIssues(
   });
   return result.searchIssues.nodes;
 }
+
+// Types for issue editing
+export interface WorkflowState {
+  id: string;
+  name: string;
+  type: StateType;
+}
+
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+}
+
+export interface IssueUpdateInput {
+  title?: string;
+  description?: string;
+  stateId?: string;
+  priority?: number;
+  assigneeId?: string | null;
+  labelIds?: string[];
+  projectId?: string | null;
+  teamId?: string;
+  dueDate?: string | null;
+  estimate?: number;
+}
+
+export interface UpdateIssueResponse {
+  issueUpdate: {
+    success: boolean;
+    issue: Issue;
+  };
+}
+
+interface WorkflowStatesResponse {
+  team: {
+    states: {
+      nodes: WorkflowState[];
+    };
+  } | null;
+}
+
+interface LabelsResponse {
+  team: {
+    labels: {
+      nodes: Label[];
+    };
+  } | null;
+}
+
+interface ProjectsResponse {
+  projects: {
+    nodes: Project[];
+  };
+}
+
+interface UsersResponse {
+  users: {
+    nodes: User[];
+  };
+}
+
+export async function getWorkflowStates(
+  client: LinearClient,
+  teamId: string
+): Promise<WorkflowState[]> {
+  const query = `
+    query($teamId: String!) {
+      team(id: $teamId) {
+        states {
+          nodes {
+            id
+            name
+            type
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<WorkflowStatesResponse>(query, { teamId });
+  if (!result.team) {
+    throw new LinearAPIError(`Team not found`);
+  }
+  return result.team.states.nodes;
+}
+
+export async function getLabels(
+  client: LinearClient,
+  teamId: string
+): Promise<Label[]> {
+  const query = `
+    query($teamId: String!) {
+      team(id: $teamId) {
+        labels {
+          nodes {
+            id
+            name
+            color
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<LabelsResponse>(query, { teamId });
+  if (!result.team) {
+    throw new LinearAPIError(`Team not found`);
+  }
+  return result.team.labels.nodes;
+}
+
+export async function getUserByEmail(
+  client: LinearClient,
+  email: string
+): Promise<User | null> {
+  const query = `
+    query($email: String!) {
+      users(filter: { email: { eq: $email } }) {
+        nodes {
+          id
+          name
+          email
+        }
+      }
+    }
+  `;
+  const result = await client.query<UsersResponse>(query, { email });
+  return result.users.nodes[0] || null;
+}
+
+export async function getProjects(client: LinearClient): Promise<Project[]> {
+  const query = `
+    query {
+      projects {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  `;
+  const result = await client.query<ProjectsResponse>(query);
+  return result.projects.nodes;
+}
+
+export async function updateIssue(
+  client: LinearClient,
+  issueId: string,
+  input: IssueUpdateInput
+): Promise<Issue> {
+  const mutation = `
+    mutation($id: String!, $input: IssueUpdateInput!) {
+      issueUpdate(id: $id, input: $input) {
+        success
+        issue {
+          ${ISSUE_FIELDS}
+        }
+      }
+    }
+  `;
+  const result = await client.query<UpdateIssueResponse>(mutation, {
+    id: issueId,
+    input,
+  });
+
+  if (!result.issueUpdate.success) {
+    throw new LinearAPIError('Failed to update issue');
+  }
+
+  return result.issueUpdate.issue;
+}
