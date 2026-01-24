@@ -38,9 +38,9 @@ jobs:
           bun build ./src/index.ts --compile --minify --target=bun-linux-arm64 --outfile linproj-Linux-aarch64
       - name: Compress binaries with UPX
         run: |
-          upx --best linproj-Darwin-arm64
-          upx --best linproj-Linux-x86_64
-          upx --best linproj-Linux-aarch64
+          upx -9 --force-macos linproj-Darwin-arm64
+          upx -9 linproj-Linux-x86_64
+          upx -9 linproj-Linux-aarch64
       - name: Extract changelog for version
         id: changelog
         run: |
