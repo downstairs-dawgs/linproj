@@ -1,9 +1,3 @@
 #!/bin/bash
 # Mock editor that changes priority to high
-# Cross-platform sed -i (macOS vs Linux)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' 's/priority: .*/priority: high/' "$1"
-else
-  sed -i 's/priority: .*/priority: high/' "$1"
-fi
-exit 0
+perl -i -pe 's/priority: .*/priority: high/' "$1"

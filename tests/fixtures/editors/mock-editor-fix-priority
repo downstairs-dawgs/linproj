@@ -1,11 +1,4 @@
 #!/bin/bash
 # Mock editor that fixes invalid priority to 'high' and changes title
-# Cross-platform sed -i (macOS vs Linux)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' 's/priority: .*/priority: high/' "$1"
-  sed -i '' "s/title: .*/title: 'Fixed by recovery editor'/" "$1"
-else
-  sed -i 's/priority: .*/priority: high/' "$1"
-  sed -i "s/title: .*/title: 'Fixed by recovery editor'/" "$1"
-fi
-exit 0
+perl -i -pe 's/priority: .*/priority: high/' "$1"
+perl -i -pe "s/title: .*/title: 'Fixed by recovery editor'/" "$1"

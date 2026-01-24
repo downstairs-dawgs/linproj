@@ -1,9 +1,3 @@
 #!/bin/bash
 # Mock editor that changes the title
-# Cross-platform sed -i (macOS vs Linux)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' "s/title: .*/title: 'Updated by mock editor'/" "$1"
-else
-  sed -i "s/title: .*/title: 'Updated by mock editor'/" "$1"
-fi
-exit 0
+perl -i -pe "s/title: .*/title: 'Updated by mock editor'/" "$1"
