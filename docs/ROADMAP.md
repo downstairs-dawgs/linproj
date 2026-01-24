@@ -25,7 +25,6 @@ Better support for scripting and integration.
 - [x] `--json` flag on issue commands
 - [x] `--field <name>` to extract single field (on `issues get`)
 - [x] `--quiet` flag (on `issues edit`)
-- [ ] `--format csv` for spreadsheet export
 
 ### Default Team (v0.4)
 
