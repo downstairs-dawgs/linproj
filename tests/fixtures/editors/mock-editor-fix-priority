@@ -1,0 +1,5 @@
+#!/bin/bash
+# Mock editor that fixes invalid priority to 'high' and changes title
+sed -i '' 's/priority: .*/priority: high/' "$1"
+sed -i '' "s/title: .*/title: 'Fixed by recovery editor'/" "$1"
+exit 0

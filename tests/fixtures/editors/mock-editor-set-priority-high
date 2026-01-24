@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock editor that changes priority to high
+sed -i '' 's/priority: .*/priority: high/' "$1"
+exit 0

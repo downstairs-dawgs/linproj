@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock editor that changes the title
+sed -i '' "s/title: .*/title: 'Updated by mock editor'/" "$1"
+exit 0

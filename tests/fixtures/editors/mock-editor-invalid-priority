@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock editor that sets an invalid priority (triggers validation error)
+sed -i '' 's/priority: .*/priority: nope/' "$1"
+exit 0

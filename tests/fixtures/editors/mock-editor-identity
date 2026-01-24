@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock editor that makes no changes (simulates user cancel)
+# The file is left exactly as-is
+exit 0
