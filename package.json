@@ -12,7 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "js-yaml": "^4.1.1"
   },
   "devDependencies": {
     "@pollyjs/adapter-fetch": "^6.0.7",
@@ -20,6 +21,7 @@
     "@pollyjs/core": "^6.0.6",
     "@pollyjs/persister-fs": "^6.0.6",
     "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.0.10"
   },
   "peerDependencies": {

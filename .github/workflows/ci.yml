@@ -14,6 +14,8 @@ jobs:
       - run: bun install
       - run: bun run tsc --noEmit
       - run: bun test
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 
   release:
     needs: check

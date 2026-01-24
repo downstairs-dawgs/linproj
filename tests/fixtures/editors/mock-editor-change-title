@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock editor that changes the title
+perl -i -pe "s/title: .*/title: 'Updated by mock editor'/" "$1"

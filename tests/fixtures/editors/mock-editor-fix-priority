@@ -1,0 +1,4 @@
+#!/bin/bash
+# Mock editor that fixes invalid priority to 'high' and changes title
+perl -i -pe 's/priority: .*/priority: high/' "$1"
+perl -i -pe "s/title: .*/title: 'Fixed by recovery editor'/" "$1"

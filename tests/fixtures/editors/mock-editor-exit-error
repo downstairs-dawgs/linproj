@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock editor that exits with an error code
+exit 1

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock editor that sets an invalid priority (triggers validation error)
+perl -i -pe 's/priority: .*/priority: nope/' "$1"
