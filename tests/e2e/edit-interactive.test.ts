@@ -81,6 +81,8 @@ describe('issues edit interactive E2E', () => {
       const result = await runCLI([
         'issues',
         'create',
+        '--team',
+        'DOW',
         '--title',
         `[TEST] Edit Interactive E2E ${Date.now()}`,
       ]);

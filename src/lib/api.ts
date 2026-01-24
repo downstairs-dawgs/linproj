@@ -101,6 +101,8 @@ export interface Issue {
   priority: number;
   createdAt: string;
   updatedAt: string;
+  dueDate?: string;
+  estimate?: number;
   team?: {
     key: string;
     name: string;
@@ -311,6 +313,8 @@ const ISSUE_FIELDS = `
   priority
   createdAt
   updatedAt
+  dueDate
+  estimate
   state {
     name
     type
@@ -510,6 +514,75 @@ export async function getLabels(
     throw new LinearAPIError(`Team not found`);
   }
   return result.team.labels.nodes;
+}
+
+export interface CreateLabelInput {
+  teamId: string;
+  name: string;
+  color?: string;
+  description?: string;
+}
+
+interface CreateLabelResponse {
+  issueLabelCreate: {
+    success: boolean;
+    issueLabel: Label;
+  };
+}
+
+interface DeleteLabelResponse {
+  issueLabelDelete: {
+    success: boolean;
+  };
+}
+
+export async function createLabel(
+  client: LinearClient,
+  input: CreateLabelInput
+): Promise<Label> {
+  const mutation = `
+    mutation($input: IssueLabelCreateInput!) {
+      issueLabelCreate(input: $input) {
+        success
+        issueLabel {
+          id
+          name
+          color
+        }
+      }
+    }
+  `;
+  const result = await client.query<CreateLabelResponse>(mutation, {
+    input: {
+      teamId: input.teamId,
+      name: input.name,
+      color: input.color,
+      description: input.description,
+    },
+  });
+
+  if (!result.issueLabelCreate.success) {
+    throw new LinearAPIError('Failed to create label');
+  }
+
+  return result.issueLabelCreate.issueLabel;
+}
+
+export async function deleteLabel(
+  client: LinearClient,
+  labelId: string
+): Promise<boolean> {
+  const mutation = `
+    mutation($id: String!) {
+      issueLabelDelete(id: $id) {
+        success
+      }
+    }
+  `;
+  const result = await client.query<DeleteLabelResponse>(mutation, {
+    id: labelId,
+  });
+  return result.issueLabelDelete.success;
 }
 
 export async function getUserByEmail(

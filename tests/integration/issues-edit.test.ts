@@ -8,15 +8,20 @@ import {
   deleteIssue,
   getWorkflowStates,
   getLabels,
+  createLabel,
+  deleteLabel,
   getViewer,
   getTeams,
+  getIssue,
 } from '../../src/lib/api.ts';
 import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
 import {
   resolveState,
   resolveAssignee,
   resolvePriority,
+  resolveTeam,
 } from '../../src/lib/resolve.ts';
+import { executeEdit } from '../../src/commands/issues/edit.ts';
 
 async function getTestAuth(): Promise<ApiKeyAuth> {
   if (process.env.POLLY_MODE !== 'record') {
@@ -234,6 +239,103 @@ describe('Issue Edit API', () => {
           assigneeId: null,
         });
         expect(updated.assignee).toBeNull();
+      } finally {
+        await deleteIssue(client, issue.id);
+      }
+    });
+  });
+
+  describe('team move validation', () => {
+    it('errors when moving to team missing a label', async () => {
+      polly = setupPolly('team-move-missing-label');
+
+      const teams = await getTeams(client);
+      const dowTeam = teams.find((t) => t.key === 'DOW');
+      const engTeam = teams.find((t) => t.key === 'ENG');
+
+      if (!dowTeam || !engTeam) {
+        console.log('Skipping test: requires both DOW and ENG teams');
+        return;
+      }
+
+      // Create a test-only label in DOW that won't exist in ENG
+      const testLabel = await createLabel(client, {
+        teamId: dowTeam.id,
+        name: 'test-dow-only',
+        color: '#ff0000',
+      });
+
+      // Create issue in DOW with the unique label
+      const issue = await createIssue(client, {
+        teamId: dowTeam.id,
+        title: 'Test Issue for Team Move Validation',
+      });
+
+      // Add the label to the issue
+      await updateIssue(client, issue.id, {
+        labelIds: [testLabel.id],
+      });
+
+      // Fetch the issue with labels for executeEdit
+      const fullIssue = await getIssue(client, issue.identifier);
+
+      try {
+        const result = await executeEdit(
+          client,
+          issue.identifier,
+          fullIssue!,
+          { team: 'ENG' },
+          {
+            hasStdinData: () => false,
+            isTTY: false,
+          }
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("Cannot move to team 'ENG'");
+        expect(result.error).toContain("label 'test-dow-only'");
+        expect(result.error).toContain('does not exist in target team');
+      } finally {
+        await deleteIssue(client, issue.id);
+        await deleteLabel(client, testLabel.id);
+      }
+    });
+
+    it('succeeds moving issue when target team has matching labels', async () => {
+      polly = setupPolly('team-move-success');
+
+      const teams = await getTeams(client);
+      const dowTeam = teams.find((t) => t.key === 'DOW');
+      const engTeam = teams.find((t) => t.key === 'ENG');
+
+      if (!dowTeam || !engTeam) {
+        console.log('Skipping test: requires both DOW and ENG teams');
+        return;
+      }
+
+      // Create issue in DOW without labels (simpler case)
+      const issue = await createIssue(client, {
+        teamId: dowTeam.id,
+        title: 'Test Issue for Team Move Success',
+      });
+
+      // Fetch the issue for executeEdit
+      const fullIssue = await getIssue(client, issue.identifier);
+
+      try {
+        const result = await executeEdit(
+          client,
+          issue.identifier,
+          fullIssue!,
+          { team: 'ENG' },
+          {
+            hasStdinData: () => false,
+            isTTY: false,
+          }
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.issue?.team?.key).toBe('ENG');
       } finally {
         await deleteIssue(client, issue.id);
       }

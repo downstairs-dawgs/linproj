@@ -4,6 +4,8 @@ import {
   LinearClient,
   getIssue,
   updateIssue,
+  getWorkflowStates,
+  getLabels,
   type Issue,
   type IssueUpdateInput,
 } from '../../lib/api.ts';
@@ -149,6 +151,47 @@ export async function defaultOpenEditor(
   });
 }
 
+async function validateTeamMove(
+  client: LinearClient,
+  issue: Issue,
+  targetTeamId: string,
+  targetTeamKey: string,
+  fields: EditFields
+): Promise<void> {
+  // If new state is being set, no need to validate current state
+  if (!fields.state) {
+    const targetStates = await getWorkflowStates(client, targetTeamId);
+    const currentStateName = issue.state.name.toLowerCase();
+    const stateExists = targetStates.some(
+      (s) => s.name.toLowerCase() === currentStateName
+    );
+    if (!stateExists) {
+      const available = targetStates.map((s) => s.name).join(', ');
+      throw new Error(
+        `Cannot move to team '${targetTeamKey}': state '${issue.state.name}' does not exist in target team. Available: ${available}`
+      );
+    }
+  }
+
+  // If new labels are being set, no need to validate current labels
+  if (!fields.labels) {
+    const currentLabels = issue.labels?.nodes || [];
+    if (currentLabels.length > 0) {
+      const targetLabels = await getLabels(client, targetTeamId);
+      const targetLabelNames = new Set(
+        targetLabels.map((l) => l.name.toLowerCase())
+      );
+      for (const label of currentLabels) {
+        if (!targetLabelNames.has(label.name.toLowerCase())) {
+          throw new Error(
+            `Cannot move to team '${targetTeamKey}': label '${label.name}' does not exist in target team`
+          );
+        }
+      }
+    }
+  }
+}
+
 async function buildUpdateInput(
   client: LinearClient,
   issue: Issue,
@@ -162,6 +205,12 @@ async function buildUpdateInput(
   const input: IssueUpdateInput = {};
   const changes: Changes = {};
   const teamId = await resolveTeam(client, issue.team.key);
+
+  // Validate team move before processing other fields
+  if (fields.team && fields.team.toLowerCase() !== issue.team.key.toLowerCase()) {
+    const targetTeamId = await resolveTeam(client, fields.team);
+    await validateTeamMove(client, issue, targetTeamId, fields.team, fields);
+  }
 
   if (fields.title !== undefined) {
     input.title = fields.title;
@@ -235,12 +284,18 @@ async function buildUpdateInput(
 
   if (fields.dueDate !== undefined) {
     input.dueDate = fields.dueDate === 'none' ? null : fields.dueDate;
-    changes.dueDate = { from: 'unknown', to: fields.dueDate };
+    const currentDueDate = issue.dueDate || 'none';
+    if (fields.dueDate !== currentDueDate) {
+      changes.dueDate = { from: currentDueDate, to: fields.dueDate };
+    }
   }
 
   if (fields.estimate !== undefined) {
     input.estimate = fields.estimate;
-    changes.estimate = { from: 'unknown', to: fields.estimate };
+    const currentEstimate = issue.estimate ?? 'none';
+    if (fields.estimate !== currentEstimate) {
+      changes.estimate = { from: currentEstimate, to: fields.estimate };
+    }
   }
 
   if (description !== undefined) {
@@ -383,7 +438,7 @@ export async function executeEdit(
 }
 
 function printChanges(identifier: string, url: string, changes: Changes): void {
-  console.log(`Updated ${identifier}`);
+  console.log(`✓ Updated ${identifier}`);
   console.log();
 
   for (const [field, change] of Object.entries(changes)) {

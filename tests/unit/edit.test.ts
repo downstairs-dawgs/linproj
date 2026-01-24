@@ -401,3 +401,345 @@ describe('saveRecoveryFile', () => {
     unlinkSync(path);
   });
 });
+
+describe('team move validation', () => {
+  // Helper to create a mock client with configurable responses
+  function createMockClient(config: {
+    teams?: { id: string; key: string; name: string }[];
+    states?: Record<string, { id: string; name: string; type: string }[]>;
+    labels?: Record<string, { id: string; name: string; color: string }[]>;
+  }) {
+    return {
+      query: async (query: string, variables?: Record<string, unknown>) => {
+        // Handle teams query
+        if (query.includes('teams {')) {
+          return { teams: { nodes: config.teams || [] } };
+        }
+
+        // Handle workflow states query
+        if (query.includes('states {')) {
+          const teamId = variables?.teamId as string;
+          const states = config.states?.[teamId] || [];
+          return { team: { states: { nodes: states } } };
+        }
+
+        // Handle labels query
+        if (query.includes('labels {') && query.includes('team(id:')) {
+          const teamId = variables?.teamId as string;
+          const labels = config.labels?.[teamId] || [];
+          return { team: { labels: { nodes: labels } } };
+        }
+
+        throw new Error(`Unexpected query: ${query}`);
+      },
+    } as any;
+  }
+
+  const issueWithLabels: Issue = {
+    ...mockIssue,
+    state: { name: 'In Progress', type: 'started' },
+    labels: {
+      nodes: [
+        { name: 'bug', color: '#ff0000' },
+        { name: 'backend', color: '#00ff00' },
+      ],
+    },
+  };
+
+  afterEach(() => {
+    cleanupRecoveryFiles('TEST-456');
+  });
+
+  it('errors when moving to team missing the current state', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [
+          { id: 'state-1', name: 'Backlog', type: 'backlog' },
+          { id: 'state-2', name: 'In Progress', type: 'started' },
+        ],
+        'team-2': [
+          { id: 'state-3', name: 'Todo', type: 'unstarted' },
+          { id: 'state-4', name: 'Done', type: 'completed' },
+        ],
+      },
+      labels: {
+        'team-1': [],
+        'team-2': [],
+      },
+    });
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueWithLabels,
+      { team: 'NEWTEAM' },
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Cannot move to team 'NEWTEAM'");
+    expect(result.error).toContain("state 'In Progress' does not exist");
+    expect(result.error).toContain('Available: Todo, Done');
+  });
+
+  it('errors when moving to team missing a label', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [{ id: 'state-1', name: 'In Progress', type: 'started' }],
+        'team-2': [{ id: 'state-2', name: 'In Progress', type: 'started' }],
+      },
+      labels: {
+        'team-1': [
+          { id: 'label-1', name: 'bug', color: '#ff0000' },
+          { id: 'label-2', name: 'backend', color: '#00ff00' },
+        ],
+        'team-2': [
+          { id: 'label-3', name: 'bug', color: '#ff0000' },
+          // Missing 'backend' label
+        ],
+      },
+    });
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueWithLabels,
+      { team: 'NEWTEAM' },
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Cannot move to team 'NEWTEAM'");
+    expect(result.error).toContain("label 'backend' does not exist");
+  });
+
+  it('succeeds when target team has matching state and labels', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [{ id: 'state-1', name: 'In Progress', type: 'started' }],
+        'team-2': [{ id: 'state-2', name: 'In Progress', type: 'started' }],
+      },
+      labels: {
+        'team-1': [
+          { id: 'label-1', name: 'bug', color: '#ff0000' },
+          { id: 'label-2', name: 'backend', color: '#00ff00' },
+        ],
+        'team-2': [
+          { id: 'label-3', name: 'bug', color: '#ff0000' },
+          { id: 'label-4', name: 'backend', color: '#00ff00' },
+        ],
+      },
+    });
+
+    // Extend mock to handle the update mutation
+    const originalQuery = client.query;
+    client.query = async (query: string, variables?: Record<string, unknown>) => {
+      if (query.includes('issueUpdate')) {
+        return {
+          issueUpdate: {
+            success: true,
+            issue: {
+              ...issueWithLabels,
+              team: { key: 'NEWTEAM', name: 'New Team' },
+            },
+          },
+        };
+      }
+      return originalQuery(query, variables);
+    };
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueWithLabels,
+      { team: 'NEWTEAM' },
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.changes?.team).toEqual({ from: 'TEST', to: 'NEWTEAM' });
+  });
+
+  it('skips state validation when new state is also specified', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [{ id: 'state-1', name: 'In Progress', type: 'started' }],
+        'team-2': [
+          { id: 'state-2', name: 'Todo', type: 'unstarted' },
+          // Does NOT have 'In Progress' but we're setting a new state
+        ],
+      },
+      labels: {
+        'team-1': [],
+        'team-2': [],
+      },
+    });
+
+    // Extend mock to handle the update mutation
+    const originalQuery = client.query;
+    client.query = async (query: string, variables?: Record<string, unknown>) => {
+      if (query.includes('issueUpdate')) {
+        return {
+          issueUpdate: {
+            success: true,
+            issue: {
+              ...mockIssue,
+              state: { name: 'Todo', type: 'unstarted' },
+              team: { key: 'NEWTEAM', name: 'New Team' },
+            },
+          },
+        };
+      }
+      return originalQuery(query, variables);
+    };
+
+    // Issue without labels to avoid label validation complexity
+    const issueNoLabels = { ...mockIssue, state: { name: 'In Progress', type: 'started' as const } };
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueNoLabels,
+      { team: 'NEWTEAM', state: 'Todo' },
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('skips label validation when new labels are also specified', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [{ id: 'state-1', name: 'Backlog', type: 'backlog' }],
+        'team-2': [{ id: 'state-2', name: 'Backlog', type: 'backlog' }],
+      },
+      labels: {
+        'team-1': [{ id: 'label-1', name: 'old-label', color: '#ff0000' }],
+        'team-2': [
+          { id: 'label-2', name: 'new-label', color: '#00ff00' },
+          // Does NOT have 'old-label' but we're setting new labels
+        ],
+      },
+    });
+
+    // Extend mock to handle the update mutation
+    const originalQuery = client.query;
+    client.query = async (query: string, variables?: Record<string, unknown>) => {
+      if (query.includes('issueUpdate')) {
+        return {
+          issueUpdate: {
+            success: true,
+            issue: {
+              ...mockIssue,
+              labels: { nodes: [{ name: 'new-label', color: '#00ff00' }] },
+              team: { key: 'NEWTEAM', name: 'New Team' },
+            },
+          },
+        };
+      }
+      return originalQuery(query, variables);
+    };
+
+    const issueWithOldLabel: Issue = {
+      ...mockIssue,
+      labels: { nodes: [{ name: 'old-label', color: '#ff0000' }] },
+    };
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueWithOldLabel,
+      { team: 'NEWTEAM', label: ['new-label'] },  // Use 'label' not 'labels'
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('validates state case-insensitively', async () => {
+    const client = createMockClient({
+      teams: [
+        { id: 'team-1', key: 'TEST', name: 'Test Team' },
+        { id: 'team-2', key: 'NEWTEAM', name: 'New Team' },
+      ],
+      states: {
+        'team-1': [{ id: 'state-1', name: 'In Progress', type: 'started' }],
+        'team-2': [{ id: 'state-2', name: 'IN PROGRESS', type: 'started' }], // Different case
+      },
+      labels: {
+        'team-1': [],
+        'team-2': [],
+      },
+    });
+
+    // Extend mock to handle the update mutation
+    const originalQuery = client.query;
+    client.query = async (query: string, variables?: Record<string, unknown>) => {
+      if (query.includes('issueUpdate')) {
+        return {
+          issueUpdate: {
+            success: true,
+            issue: {
+              ...mockIssue,
+              team: { key: 'NEWTEAM', name: 'New Team' },
+            },
+          },
+        };
+      }
+      return originalQuery(query, variables);
+    };
+
+    const issueInProgress = {
+      ...mockIssue,
+      state: { name: 'In Progress', type: 'started' as const },
+    };
+
+    const result = await executeEdit(
+      client,
+      'TEST-456',
+      issueInProgress,
+      { team: 'NEWTEAM' },
+      {
+        hasStdinData: () => false,
+        isTTY: false,
+      }
+    );
+
+    expect(result.success).toBe(true);
+  });
+});
