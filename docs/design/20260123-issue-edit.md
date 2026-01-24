@@ -242,14 +242,9 @@ Markdown is **supported**.
 
 ### Markdown Handling
 
-The description body is passed through to Linear's API as-is without parsing or validation. Linear handles markdown rendering.
+> **TODO:** Investigate Linear's markdown handling before implementation. Need to test `@mentions`, issue references (`PROJ-123`), tables, task lists, and other features to confirm passthrough works as expected.
 
-**Linear's markdown support** (based on Linear's documentation):
-- Standard CommonMark: headings, bold, italic, links, images, code blocks, lists, blockquotes
-- GitHub-flavored extensions: tables, task lists (`- [ ]`), strikethrough
-- Linear-specific: `@mentions` for users, issue references (`PROJ-123` auto-links)
-
-We do **not** validate or transform markdown. If you use unsupported syntax, Linear will render it as plain text. This keeps the CLI simple and avoids diverging from Linear's actual rendering behavior.
+Current plan: pass description body through to Linear's API as-is without parsing or validation. Linear handles markdown rendering. We do not validate or transform markdown.
 
 ---
 
