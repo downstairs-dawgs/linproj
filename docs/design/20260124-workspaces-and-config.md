@@ -384,4 +384,36 @@ export class TestConfigContext {
 
 ## Verification
 
-Run `bun test` to execute the full test suite. All behavior is covered by the unit, integration, and e2e tests enumerated above - no manual verification required.
+### Automated Tests
+
+Run `bun test` to execute the full test suite.
+
+### Manual Verification Checklist
+
+After implementation, verify each step works as expected:
+
+1. **Migration flow**
+   - [ ] `linproj issues list` with v1 config → shows migration error with command to run
+   - [ ] `linproj config migrate` → creates workspace, shows success message
+
+2. **Workspace commands**
+   - [ ] `linproj workspace list` → shows workspace with current marked
+   - [ ] `linproj workspace current` → shows current workspace name and default team
+   - [ ] `linproj workspace switch <name>` → switches workspace
+
+3. **Config commands**
+   - [ ] `linproj config get default-team` → returns value (or empty if not set)
+   - [ ] `linproj config set default-team <team>` → sets default team
+   - [ ] `linproj config unset default-team` → clears default team
+
+4. **Default team integration**
+   - [ ] `linproj issues list` → uses default team when set
+   - [ ] `linproj issues create -t "Test"` → creates in default team
+
+5. **Multi-workspace isolation**
+   - [ ] Add second workspace via `auth login`
+   - [ ] `workspace switch` between workspaces
+   - [ ] Verify each workspace has its own credentials and settings
+
+6. **Environment variable behavior**
+   - [ ] `linproj workspace list` with `LINEAR_API_KEY` set → shows error
