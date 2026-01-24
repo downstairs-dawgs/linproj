@@ -20,7 +20,7 @@ This document describes the implementation of workspace management and default t
 ~/.config/linproj/
 ├── config.json           # Global config (version, currentWorkspace)
 └── workspaces/
-    ├── acme-corp.json    # Workspace profile (filename from org urlKey)
+    ├── 550e8400-....json # Workspace profile (filename from org ID)
     └── personal.json     # Workspace profile
 ```
 
@@ -40,7 +40,7 @@ The global config file includes a version number:
 }
 ```
 
-The `currentWorkspace` field references a workspace file by its **filename** (without `.json`). The filename is derived from the organization's `urlKey` from the Linear API (e.g., `acme-corp`), which is a stable, URL-safe identifier. This is more reliable than organization name, which could theoretically change.
+The `currentWorkspace` field references a workspace file by its **filename** (without `.json`). The filename is derived from the organization's `id` from the Linear API (e.g., `550e8400-e29b-41d4-a716-446655440000`), which is guaranteed never to change. This is more reliable than `urlKey` or organization name, which could theoretically change if the organization is renamed.
 
 ### Current (v1 - implicit)
 
@@ -63,13 +63,13 @@ interface ConfigV2 {
 }
 ```
 
-**Workspace profile** (`~/.config/linproj/workspaces/<urlKey>.json`):
+**Workspace profile** (`~/.config/linproj/workspaces/<organizationId>.json`):
 
 ```typescript
 interface WorkspaceProfile {
   organizationId: string;    // Linear org ID (stable, never changes)
   organizationName: string;  // Linear org display name (for UI)
-  urlKey: string;            // Linear org urlKey (stable, used for filename)
+  urlKey: string;            // Linear org urlKey (for display/reference)
   auth: Auth;
   defaultTeam?: string;      // Team key (e.g., "ENG")
 }
@@ -102,14 +102,13 @@ Your configuration uses an older format. Run:
 This will:
   - Fetch your organization info from Linear
   - Create a workspace profile for your current auth
-  - Update to the new config format
 ```
 
 The `config migrate` command:
 1. Reads v1 config
 2. Calls Linear API to get organization info (requires valid auth)
-3. Creates workspace file in `~/.config/linproj/workspaces/<urlKey>.json`
-4. Writes v2 global config with `currentWorkspace` set to the urlKey
+3. Creates workspace file in `~/.config/linproj/workspaces/<organizationId>.json`
+4. Writes v2 global config with `currentWorkspace` set to the organizationId
 5. Removes old `auth` from global config
 
 ### Environment Variable Override
@@ -273,6 +272,7 @@ export async function getOrganization(client: LinearClient): Promise<Organizatio
 5. **Config commands**: Create config get/set/unset
 6. **Integration**: Wire default team into issues list/create
 7. **Tests**: Full test coverage (see below)
+8. **Documentation**: Update README.md with new workspace and config commands
 
 ---
 
@@ -282,7 +282,7 @@ export async function getOrganization(client: LinearClient): Promise<Organizatio
 
 Add a `TestConfigContext` helper that:
 - Creates a temporary directory for config files
-- Sets `CONFIG_DIR` to the temp directory for the test
+- Sets `LINPROJ_CONFIG_DIR` to the temp directory for the test
 - Provides helpers to write/read test configs
 - Cleans up after tests
 
@@ -375,9 +375,22 @@ export class TestConfigContext {
 2. Uses `TestConfigContext` to create a temp config directory
 3. Pre-populates workspace files with test credentials
 
-**`e2e/workspace-flow.test.ts`**:
-- Full flow: migrate → set default-team → create issue → switch workspace → list issues
+**`e2e/config-migration.test.ts`**:
+- Migrate v1 config to v2 → verify workspace file created
+- Run command with v1 config → verify migration error shown
+
+**`e2e/workspace-switching.test.ts`**:
+- Switch between workspaces → verify current workspace updates
+- List workspaces → verify correct workspace marked as current
+
+**`e2e/default-team.test.ts`**:
+- Set default team → create issue → verify uses default team
+- Override with --team flag → verify flag takes precedence
+
+**`e2e/workspace-isolation.test.ts`**:
 - Verify isolation: changes in one workspace don't affect another
+
+**`e2e/env-var-override.test.ts`**:
 - Verify env var behavior: workspace commands fail when `LINEAR_API_KEY` is set
 
 ---
