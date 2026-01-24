@@ -13,7 +13,7 @@ This design covers the `issues edit` command, which allows modifying existing Li
 3. **Partial updates**: Only specified fields are modified
 4. **Multiple input modes**: Piped stdin, flags, and interactive editor
 
-**Input priority:** When both stdin and CLI flags are provided, CLI flags take precedence and override any conflicting fields from stdin. This allows piping a base template while overriding specific fields.
+**Mutual exclusivity:** Stdin input and mutation flags (`--title`, `--state`, `--priority`, etc.) cannot be combined. If both are provided, the command errors. Use one input method or the other, not both.
 
 ---
 
@@ -79,7 +79,6 @@ linproj issues edit PROJ-123 --assignee jane@example.com
 linproj issues edit PROJ-123 --assignee me      # Assign to yourself
 linproj issues edit PROJ-123 --assignee none    # Unassign
 linproj issues edit PROJ-123 --priority high    # Or: urgent, medium, low, none
-linproj issues edit PROJ-123 --priority 2       # Numeric: 0=none, 1=urgent, 2=high, 3=medium, 4=low
 
 # Labels (replaces all existing labels)
 linproj issues edit PROJ-123 --label bug --label urgent
@@ -111,7 +110,8 @@ The editor opens with:
 ---
 # Editing PROJ-123
 # Delete fields you don't want to change
-# Save and close to apply changes, or delete everything to cancel
+# Save and close to apply changes
+# To cancel: delete all content, or leave unchanged
 
 title: 'Current issue title'
 state: 'In Progress'
@@ -155,13 +155,15 @@ field: value
 |-------|------|--------|-------|
 | `title` | string | Any text | Required non-empty if specified |
 | `state` | string | State name (e.g., "In Progress", "Done") | Looked up by name |
-| `priority` | string/int | `none`/`0`, `urgent`/`1`, `high`/`2`, `medium`/`3`, `low`/`4` | |
+| `priority` | string | `none`, `urgent`, `high`, `medium`, `low` | Case-insensitive |
 | `assignee` | string | `me`, `none`, or email address | `none` unassigns |
 | `labels` | array | List of label names (replaces all) | |
 | `project` | string | Project name or `none` | `none` removes from project |
-| `team` | string | Team key (e.g., "ENG") | Moves issue to different team |
+| `team` | string | Team key (e.g., "ENG") | Fails if issue's labels/state don't exist in target team |
 | `dueDate` | string | ISO date (e.g., "2026-02-15") or `none` | |
 | `estimate` | number | Story points (depends on team settings) | |
+
+**Name matching:** State, label, and project names are matched case-insensitively.
 
 ### Frontmatter Schema (TypeScript)
 
@@ -169,7 +171,7 @@ field: value
 interface EditFrontmatter {
   title?: string;                    // Non-empty string
   state?: string;                    // State name, looked up against team's workflow states
-  priority?: 'none' | 'urgent' | 'high' | 'medium' | 'low' | 0 | 1 | 2 | 3 | 4;
+  priority?: 'none' | 'urgent' | 'high' | 'medium' | 'low';
   assignee?: 'me' | 'none' | string; // 'me', 'none', or email address
   labels?: string[];                 // Label names, replaces all existing labels
   project?: 'none' | string;         // Project name or 'none' to remove
@@ -237,7 +239,7 @@ Markdown is **supported**.
 
 **Rules:**
 - If nothing after `---`, description is not modified
-- To clear the description, provide empty body (whitespace-only after `---`)
+- To clear the description, provide empty body (whitespace-only after `---`). Whitespace means ASCII spaces, tabs, and newlines only.
 - `description` field in frontmatter is **not allowed** - use the body instead. The command will error if `description` appears in frontmatter.
 
 ### Markdown Handling
@@ -352,12 +354,13 @@ export function createEditCommand(): Command {
     .argument('<identifier>', 'Issue identifier (e.g., PROJ-123)')
     .option('--title <title>', 'New title')
     .option('--state <state>', 'New state name')
-    .option('--priority <priority>', 'Priority: urgent/high/medium/low/none or 0-4')
+    .option('--priority <priority>', 'Priority: urgent, high, medium, low, or none')
     .option('--assignee <assignee>', 'Assignee: email, "me", or "none"')
     .option('--label <label>', 'Set labels (repeatable, replaces all)', collect)
     .option('--project <project>', 'Project name or "none"')
     .option('--team <team>', 'Move to team (team key)')
     .option('--due-date <date>', 'Due date (ISO format) or "none"')
+    .option('--estimate <points>', 'Story points estimate')
     .option('-i, --interactive', 'Open in editor')
     .option('--json', 'Output as JSON')
     .option('--quiet', 'Suppress output on success')
@@ -532,13 +535,17 @@ export async function resolveAssignee(
 3. Render as frontmatter with comments
 4. Write to temp file
 5. Open $EDITOR (fallback: vim, then nano)
+   - If no editor available: error "No editor found. Set $EDITOR or install vim/nano"
 6. Wait for editor to close
+   - If editor exits non-zero: error "Editor exited with status <code>"
 7. Read temp file
-8. Parse frontmatter
-9. Compute diff (skip unchanged fields)
-10. If no changes: "No changes made"
-11. Resolve and execute mutation
-12. Output result
+8. If file unchanged from original OR empty: "Edit cancelled, no changes made" (exit 0)
+9. Parse frontmatter
+10. Compute field-level diff (skip unchanged fields, ignore description whitespace differences)
+11. If no field changes: "No changes to apply" (exit 0)
+12. Resolve and execute mutation
+13. Output result
+14. Delete temp file
 ```
 
 ---
@@ -557,7 +564,18 @@ export async function resolveAssignee(
 | User not found | `Error: User 'unknown@example.com' not found` | 1 |
 | No changes | `No changes to apply` | 0 |
 | Empty title | `Error: Title cannot be empty` | 1 |
+| Invalid priority | `Error: Invalid priority 'foo'. Valid values: urgent, high, medium, low, none` | 1 |
+| Stdin + flags | `Error: Cannot combine stdin input with mutation flags` | 1 |
+| No editor available | `Error: No editor found. Set $EDITOR or install vim/nano` | 1 |
+| Editor exits non-zero | `Error: Editor exited with status <code>` | 1 |
+| Temp file creation fails | `Error: Failed to create temp file: <system error>` | 1 |
+| Label missing in target team | `Error: Cannot move to team 'ENG': label 'backend' does not exist in target team` | 1 |
+| State missing in target team | `Error: Cannot move to team 'ENG': state 'In Progress' does not exist in target team` | 1 |
 | API error | `Error: <Linear API error message>` | 1 |
+
+### Concurrency
+
+Updates are applied without optimistic locking. If the issue was modified between fetch and update, your changes are still applied (last write wins).
 
 ---
 
@@ -737,6 +755,98 @@ title: 'Updated via CLI'
     expect(output.success).toBe(true);
     expect(output.issue.title).toBe('JSON test');
   });
+
+  test('errors when stdin and flags both provided', async () => {
+    const input = `---\ntitle: 'From stdin'\n---`;
+    const result = await runCLI(
+      ['issues', 'edit', 'TEST-123', '--title', 'From flag'],
+      { stdin: input }
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Cannot combine stdin input with mutation flags');
+  });
+
+  test('rejects numeric priority', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '--priority', '2']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid priority');
+  });
+
+  test('clears all labels with empty string', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '--label', '']);
+    expect(result.exitCode).toBe(0);
+    // Verify labels are cleared
+  });
+
+  test('resolves --assignee me to current user', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '--assignee', 'me']);
+    expect(result.exitCode).toBe(0);
+  });
+});
+```
+
+### Interactive Mode Tests
+
+```typescript
+describe('issues edit interactive', () => {
+  test('cancels when file unchanged', async () => {
+    // Mock editor that makes no changes
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '-i'], {
+      env: { EDITOR: 'true' } // 'true' command exits immediately without changes
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Edit cancelled');
+  });
+
+  test('cancels when file emptied', async () => {
+    // Mock editor that empties the file
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '-i'], {
+      env: { EDITOR: 'truncate-file-script' }
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Edit cancelled');
+  });
+
+  test('errors when no editor available', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '-i'], {
+      env: { EDITOR: '', PATH: '' } // No editor available
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('No editor found');
+  });
+
+  test('errors when editor exits non-zero', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '-i'], {
+      env: { EDITOR: 'false' } // 'false' command exits with status 1
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Editor exited with status');
+  });
+});
+```
+
+### Team Move Validation Tests
+
+```typescript
+describe('issues edit team move', () => {
+  test('errors when moving to team missing label', async () => {
+    // Issue has label 'backend' which doesn't exist in NEWTEAM
+    const result = await runCLI(['issues', 'edit', 'TEST-123', '--team', 'NEWTEAM']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("label 'backend' does not exist in target team");
+  });
+
+  test('errors when moving to team missing state', async () => {
+    // Issue in state 'In Review' which doesn't exist in NEWTEAM
+    const result = await runCLI(['issues', 'edit', 'TEST-456', '--team', 'NEWTEAM']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("state 'In Review' does not exist in target team");
+  });
+
+  test('succeeds when target team has matching labels and state', async () => {
+    const result = await runCLI(['issues', 'edit', 'TEST-789', '--team', 'COMPATIBLE']);
+    expect(result.exitCode).toBe(0);
+  });
 });
 ```
 
@@ -777,8 +887,15 @@ title: 'Updated via CLI'
 ### Step 6: Interactive Mode
 - [ ] Implement temp file creation
 - [ ] Implement `$EDITOR` invocation
-- [ ] Implement diff detection
+- [ ] Implement diff detection (field-level, ignore description whitespace)
+- [ ] Handle cancellation (unchanged or empty file)
+- [ ] Handle editor errors (not found, non-zero exit)
 - [ ] Add tests
+
+### Step 7: Team Move Validation
+- [ ] Validate target team has all current labels (fail if missing)
+- [ ] Validate target team has current state (fail if missing)
+- [ ] Add specific tests for team move validation failures
 
 ---
 
