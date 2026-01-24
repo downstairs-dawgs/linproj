@@ -22,6 +22,17 @@ export interface Config {
 }
 
 export async function readConfig(): Promise<Config> {
+  // Check for LINEAR_API_KEY environment variable first
+  const envApiKey = process.env.LINEAR_API_KEY;
+  if (envApiKey) {
+    return {
+      auth: {
+        type: 'api-key',
+        apiKey: envApiKey,
+      },
+    };
+  }
+
   try {
     const content = await readFile(CONFIG_FILE, 'utf-8');
     return JSON.parse(content) as Config;
