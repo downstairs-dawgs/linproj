@@ -577,9 +577,147 @@ export async function resolveAssignee(
 
 Updates are applied without optimistic locking. If the issue was modified between fetch and update, your changes are still applied (last write wins).
 
+### Input Recovery
+
+When an edit fails **after** the user has provided input (interactive mode, stdin, or `--recover`), the input is preserved so the user doesn't lose their work. This is especially important for interactive mode where the user may have written a detailed description.
+
+**Recovery file location:** `$TMPDIR/linproj-recovery-<identifier>-<timestamp>.md`
+
+**Recovery flag:** `--recover <file>` opens the editor with the recovery file contents pre-populated, allowing the user to fix errors and retry in one step.
+
+**Behavior:**
+
+1. If any error occurs after receiving user input (parsing, resolution, or API call):
+   - Save the user's input to a recovery file
+   - Print the error message
+   - Print a recovery command using the `--recover` flag
+
+2. When `--recover` is used:
+   - Read the recovery file
+   - Open the editor with its contents
+   - Process the edited result as normal
+
+**Example output on failure:**
+
+```
+Error: State 'InvalidState' not found. Available: Todo, In Progress, Done
+
+Your input has been saved. To retry:
+  linproj issues edit PROJ-123 --recover /tmp/linproj-recovery-PROJ-123-1706054400.md
+```
+
+**When recovery is saved:**
+
+- Invalid field values (bad priority, unknown state, etc.)
+- API errors (network failure, permission denied, etc.)
+- Resolution errors (user not found, label not found, etc.)
+- Parse errors when user has already typed content (invalid YAML syntax)
+
+**When recovery is NOT saved:**
+
+- Authentication errors - no user input to preserve
+- Issue not found - fails before input is read
+- "No changes to apply" - not an error, nothing to recover
+- Flag-based input - flags are easy to retype
+
+**Cleanup:** Recovery files are NOT automatically deleted. Users should delete them manually after successful retry or if they no longer need them. This is intentional - automatic cleanup could delete work the user still wants.
+
 ---
 
 ## Testing
+
+### Testing Strategy for Interactive Behavior
+
+Interactive editor mode is challenging to test because it spawns a subprocess (`$EDITOR`) that waits for human input. We use two complementary approaches:
+
+#### Approach 1: Mock Editor Scripts
+
+Set `$EDITOR` to executable scripts that simulate different user behaviors:
+
+```bash
+# tests/fixtures/editors/mock-editor-identity
+#!/bin/bash
+# Simulates user making no changes (cancel)
+exit 0
+
+# tests/fixtures/editors/mock-editor-clear
+#!/bin/bash
+# Simulates user clearing the file (cancel)
+: > "$1"
+
+# tests/fixtures/editors/mock-editor-set-priority-high
+#!/bin/bash
+# Simulates user changing priority to high
+sed -i '' 's/priority: .*/priority: high/' "$1"
+
+# tests/fixtures/editors/mock-editor-invalid-priority
+#!/bin/bash
+# Simulates user entering invalid priority (triggers recovery)
+sed -i '' 's/priority: .*/priority: nope/' "$1"
+```
+
+E2E tests use these scripts via environment variable:
+
+```typescript
+test('saves recovery file on validation error', async () => {
+  const result = await runCLI(['issues', 'edit', 'TEST-123', '-i'], {
+    env: { EDITOR: './tests/fixtures/editors/mock-editor-invalid-priority' }
+  });
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain('Invalid priority');
+  expect(result.stderr).toMatch(/--recover .*\.md/);
+});
+```
+
+#### Approach 2: Dependency Injection
+
+The editor function is injectable, allowing unit tests to bypass subprocess spawning entirely:
+
+```typescript
+// In src/commands/issues/edit.ts
+export type EditorFn = (content: string, identifier: string) => Promise<string>;
+
+export async function executeEdit(
+  options: EditOptions,
+  deps: { openEditor?: EditorFn } = {}
+): Promise<void> {
+  const openEditor = deps.openEditor ?? defaultOpenEditor;
+  // ... rest of implementation
+}
+```
+
+Unit tests inject a mock:
+
+```typescript
+test('handles editor returning invalid content', async () => {
+  const mockEditor = async (content: string) => {
+    return content.replace(/priority: .*/, 'priority: invalid');
+  };
+
+  const result = await executeEdit(
+    { identifier: 'TEST-123' },
+    { openEditor: mockEditor }
+  );
+
+  expect(result.error).toContain('Invalid priority');
+  expect(result.recoveryPath).toBeDefined();
+});
+```
+
+#### What Each Approach Tests
+
+| Scenario | Mock Editor Script | Dependency Injection |
+|----------|-------------------|---------------------|
+| Editor opens with correct content | ✓ (script can verify) | ✓ (mock receives content) |
+| Cancel on unchanged file | ✓ | ✓ |
+| Cancel on empty file | ✓ | ✓ |
+| Validation error → recovery | ✓ | ✓ |
+| Recovery file contains input | ✓ | ✓ |
+| `--recover` opens editor | ✓ | ✓ |
+| Real editor integration | ✓ | ✗ |
+| Fast execution | ✗ | ✓ |
+
+Use **mock editor scripts** for E2E tests that verify the full flow works. Use **dependency injection** for fast unit tests of specific logic paths.
 
 ### Unit Tests
 
