@@ -7,47 +7,27 @@ A prioritized list of features for the linproj CLI.
 **Implemented:**
 - Authentication via API key
 - `auth login`, `auth logout`, `auth status`
-- `issues list` (assigned to current user)
+- `issues list` with filters (team, state, assignee, project, labels, priority)
 - `issues create` (with team selection, priority, assignment)
-
----
-
-## In Progress
-
-### Issue Queries (v0.2)
-
-See: [docs/design/20260123-issue-queries.md](design/20260123-issue-queries.md)
-
-- [ ] **Get single issue** - `linproj issues get PROJ-123`
-- [ ] **Search issues** - `linproj issues search "query"`
-- [ ] **List filters** - Filter by team, state, assignee, project, labels, priority
+- `issues get PROJ-123` - View single issue details
+- `issues search "query"` - Search issues by text
+- `issues edit` with CLI flags and interactive editor mode
+- `--json` output on `issues list`, `issues get`, `issues edit`
 
 ---
 
 ## Planned
 
-### Edit Issues (v0.3)
-
-Modify existing issues from the CLI.
-
-- [ ] `linproj issues edit PROJ-123 --title "New title"`
-- [ ] `linproj issues edit PROJ-123 --state "In Progress"`
-- [ ] `linproj issues edit PROJ-123 --assignee jane@example.com`
-- [ ] `linproj issues edit PROJ-123 --priority high`
-- [ ] `linproj issues edit PROJ-123 --label add:bug`
-- [ ] `linproj issues edit PROJ-123 --label remove:wontfix`
-- [ ] Interactive edit mode: `linproj issues edit PROJ-123` (opens prompts)
-
-### Output Formatting (v0.3)
+### Output Formatting (v0.4)
 
 Better support for scripting and integration.
 
-- [ ] `--json` flag on all commands that output data
-- [ ] `--field <name>` to extract single field (for piping)
+- [x] `--json` flag on issue commands
+- [x] `--field <name>` to extract single field (on `issues get`)
+- [x] `--quiet` flag (on `issues edit`)
 - [ ] `--format csv` for spreadsheet export
-- [ ] `--quiet` flag to suppress non-essential output
 
-### Default Team (v0.3)
+### Default Team (v0.4)
 
 Reduce friction for users who primarily work in one team.
 
