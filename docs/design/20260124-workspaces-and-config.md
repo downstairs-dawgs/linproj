@@ -20,8 +20,8 @@ This document describes the implementation of workspace management and default t
 ~/.config/linproj/
 ├── config.json           # Global config (version, currentWorkspace)
 └── workspaces/
-    ├── acme-corp.json    # Workspace profile for "Acme Corp"
-    └── personal.json     # Workspace profile for "Personal"
+    ├── acme-corp.json    # Workspace profile (filename from org urlKey)
+    └── personal.json     # Workspace profile
 ```
 
 This structure:
@@ -36,9 +36,11 @@ The global config file includes a version number:
 ```json
 {
   "version": 2,
-  "currentWorkspace": "Acme Corp"
+  "currentWorkspace": "acme-corp"
 }
 ```
+
+The `currentWorkspace` field references a workspace file by its **filename** (without `.json`). The filename is derived from the organization's `urlKey` from the Linear API (e.g., `acme-corp`), which is a stable, URL-safe identifier. This is more reliable than organization name, which could theoretically change.
 
 ### Current (v1 - implicit)
 
@@ -61,12 +63,13 @@ interface ConfigV2 {
 }
 ```
 
-**Workspace profile** (`~/.config/linproj/workspaces/<org-name>.json`):
+**Workspace profile** (`~/.config/linproj/workspaces/<urlKey>.json`):
 
 ```typescript
 interface WorkspaceProfile {
-  organizationId: string;    // Linear org ID
-  organizationName: string;  // Linear org name (from API, used as identifier)
+  organizationId: string;    // Linear org ID (stable, never changes)
+  organizationName: string;  // Linear org display name (for UI)
+  urlKey: string;            // Linear org urlKey (stable, used for filename)
   auth: Auth;
   defaultTeam?: string;      // Team key (e.g., "ENG")
 }
@@ -105,17 +108,23 @@ This will:
 The `config migrate` command:
 1. Reads v1 config
 2. Calls Linear API to get organization info (requires valid auth)
-3. Creates workspace file in `~/.config/linproj/workspaces/<org-name>.json`
-4. Writes v2 global config
+3. Creates workspace file in `~/.config/linproj/workspaces/<urlKey>.json`
+4. Writes v2 global config with `currentWorkspace` set to the urlKey
 5. Removes old `auth` from global config
 
 ### Environment Variable Override
 
-When `LINEAR_API_KEY` is set, it creates an ephemeral workspace context at runtime:
-- The API key is used directly without touching config files
-- No workspace is created or persisted
-- `workspace list/switch` commands show a note that env var is active
-- This is an internal implementation detail for backwards compatibility
+When `LINEAR_API_KEY` is set, workspace commands will fail with an error:
+
+```
+$ linproj workspace list
+Error: Workspace commands are not available when LINEAR_API_KEY is set.
+
+To use workspaces, unset the environment variable and run:
+  linproj auth login
+```
+
+This keeps the design simple - environment variable usage and workspace-based configuration are mutually exclusive. Users who want workspace features must use the config-based auth flow.
 
 ---
 
@@ -208,10 +217,7 @@ Migration complete.
 ### `issues list` / `issues create` / `issues search` / `issues get`
 - Add `--workspace <name>` flag to use a different workspace for that command
 - Use `defaultTeam` from current workspace when `--team` not specified
-- Show team name naturally in output when using default (create only):
-  ```
-  Created ENG-123: Fix login bug (team: Engineering)
-  ```
+- No special output annotation needed - the team prefix in the issue ID (e.g., `ENG-123`) already indicates which team was used
 
 ---
 
@@ -360,28 +366,22 @@ export class TestConfigContext {
 - `issues list` uses default team when set
 - `issues list --team` overrides default team
 - `issues create` uses default team when set
-- `issues create` output includes team name when using default
 - `issues create --workspace` uses specified workspace
 
 ### E2E Tests
 
+**CI Environment Note**: CI currently uses `LINEAR_API_KEY` for e2e tests. Since workspace commands fail when this env var is set, e2e tests for workspace-specific features will need a test harness that:
+1. Unsets `LINEAR_API_KEY` for workspace tests
+2. Uses `TestConfigContext` to create a temp config directory
+3. Pre-populates workspace files with test credentials
+
 **`e2e/workspace-flow.test.ts`**:
-- Full flow: login → migrate → set default-team → create issue → switch workspace → list issues
+- Full flow: migrate → set default-team → create issue → switch workspace → list issues
 - Verify isolation: changes in one workspace don't affect another
-- Verify env var override: LINEAR_API_KEY takes precedence
+- Verify env var behavior: workspace commands fail when `LINEAR_API_KEY` is set
 
 ---
 
 ## Verification
 
-1. `bun test` - Run full test suite
-2. Manual test flow:
-   - `linproj auth login` with v1 config → shows migration notice
-   - `linproj config migrate` → creates workspace
-   - `linproj workspace list` → shows workspace
-   - `linproj workspace current` → shows current
-   - `linproj config set default-team <team>` → sets default
-   - `linproj issues list` → uses default team
-   - `linproj issues create -t "Test"` → shows team in output
-   - Add second workspace via `auth login`, verify isolation
-   - Test `workspace switch` between workspaces
+Run `bun test` to execute the full test suite. All behavior is covered by the unit, integration, and e2e tests enumerated above - no manual verification required.
