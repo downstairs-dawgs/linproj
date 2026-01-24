@@ -96,13 +96,13 @@ describe('Issue Edit API', () => {
       const teams = await getTeams(client);
       expect(teams.length).toBeGreaterThan(0);
 
-      const states = await getWorkflowStates(client, teams[0].id);
+      const states = await getWorkflowStates(client, teams[0]!.id);
 
       expect(Array.isArray(states)).toBe(true);
       expect(states.length).toBeGreaterThan(0);
-      expect(states[0]).toHaveProperty('id');
-      expect(states[0]).toHaveProperty('name');
-      expect(states[0]).toHaveProperty('type');
+      expect(states[0]!).toHaveProperty('id');
+      expect(states[0]!).toHaveProperty('name');
+      expect(states[0]!).toHaveProperty('type');
     });
   });
 
@@ -112,7 +112,7 @@ describe('Issue Edit API', () => {
       const teams = await getTeams(client);
       expect(teams.length).toBeGreaterThan(0);
 
-      const labels = await getLabels(client, teams[0].id);
+      const labels = await getLabels(client, teams[0]!.id);
 
       expect(Array.isArray(labels)).toBe(true);
     });
@@ -122,30 +122,30 @@ describe('Issue Edit API', () => {
     it('resolves state name to ID', async () => {
       polly = setupPolly('resolve-state');
       const teams = await getTeams(client);
-      const states = await getWorkflowStates(client, teams[0].id);
+      const states = await getWorkflowStates(client, teams[0]!.id);
       expect(states.length).toBeGreaterThan(0);
 
-      const stateId = await resolveState(client, teams[0].id, states[0].name);
+      const stateId = await resolveState(client, teams[0]!.id, states[0]!.name);
 
       expect(typeof stateId).toBe('string');
-      expect(stateId).toBe(states[0].id);
+      expect(stateId).toBe(states[0]!.id);
     });
 
     it('is case-insensitive', async () => {
       polly = setupPolly('resolve-state-case');
       const teams = await getTeams(client);
-      const states = await getWorkflowStates(client, teams[0].id);
+      const states = await getWorkflowStates(client, teams[0]!.id);
       expect(states.length).toBeGreaterThan(0);
 
       const stateId1 = await resolveState(
         client,
-        teams[0].id,
-        states[0].name.toLowerCase()
+        teams[0]!.id,
+        states[0]!.name.toLowerCase()
       );
       const stateId2 = await resolveState(
         client,
-        teams[0].id,
-        states[0].name.toUpperCase()
+        teams[0]!.id,
+        states[0]!.name.toUpperCase()
       );
 
       expect(stateId1).toBe(stateId2);
@@ -173,7 +173,7 @@ describe('Issue Edit API', () => {
       polly = setupPolly('update-issue-title');
       const teams = await getTeams(client);
       const issue = await createIssue(client, {
-        teamId: teams[0].id,
+        teamId: teams[0]!.id,
         title: 'Test Issue for Title Update',
       });
 
@@ -191,7 +191,7 @@ describe('Issue Edit API', () => {
       polly = setupPolly('update-issue-priority');
       const teams = await getTeams(client);
       const issue = await createIssue(client, {
-        teamId: teams[0].id,
+        teamId: teams[0]!.id,
         title: 'Test Issue for Priority Update',
         priority: 0,
       });
@@ -210,7 +210,7 @@ describe('Issue Edit API', () => {
       polly = setupPolly('update-issue-description');
       const teams = await getTeams(client);
       const issue = await createIssue(client, {
-        teamId: teams[0].id,
+        teamId: teams[0]!.id,
         title: 'Test Issue for Description Update',
       });
 
@@ -229,7 +229,7 @@ describe('Issue Edit API', () => {
       const teams = await getTeams(client);
       const viewer = await getViewer(client);
       const issue = await createIssue(client, {
-        teamId: teams[0].id,
+        teamId: teams[0]!.id,
         title: 'Test Issue for Unassign',
         assigneeId: viewer.id,
       });
