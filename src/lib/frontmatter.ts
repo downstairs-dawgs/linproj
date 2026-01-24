@@ -42,34 +42,25 @@ export class FrontmatterError extends Error {
 export function parseFrontmatter(input: string): ParsedInput {
   const trimmed = input.trim();
 
-  // Check if input starts with frontmatter delimiter
   if (!trimmed.startsWith('---')) {
-    // No frontmatter, entire input is description
     return {
       fields: {},
       description: trimmed || undefined,
     };
   }
 
-  // Find the closing delimiter
-  const firstDelimiter = trimmed.indexOf('---');
-  const secondDelimiter = trimmed.indexOf('---', firstDelimiter + 3);
+  const secondDelimiter = trimmed.indexOf('---', 3);
 
   if (secondDelimiter === -1) {
-    // Only one delimiter - treat everything after it as frontmatter with no body
     const yamlContent = trimmed.slice(3).trim();
-    const fields = parseYamlContent(yamlContent);
-    return { fields };
+    return { fields: parseYamlContent(yamlContent) };
   }
 
-  // Extract frontmatter and body
-  const yamlContent = trimmed.slice(firstDelimiter + 3, secondDelimiter).trim();
+  const yamlContent = trimmed.slice(3, secondDelimiter).trim();
   const body = trimmed.slice(secondDelimiter + 3).trim();
 
-  const fields = parseYamlContent(yamlContent);
-
   return {
-    fields,
+    fields: parseYamlContent(yamlContent),
     description: body || undefined,
   };
 }
@@ -87,7 +78,6 @@ function parseYamlContent(yamlContent: string): EditFields {
     throw new FrontmatterError(`Invalid YAML in frontmatter: ${message}`);
   }
 
-  // Empty YAML (e.g., just comments) parses to null/undefined
   if (parsed === null || parsed === undefined) {
     return {};
   }
@@ -100,14 +90,12 @@ function parseYamlContent(yamlContent: string): EditFields {
   const fields: EditFields = {};
 
   for (const [key, value] of Object.entries(obj)) {
-    // Check for description field (not allowed - must use body)
     if (key === 'description') {
       throw new FrontmatterError(
         "Use the body for description, not the 'description' field"
       );
     }
 
-    // Check for unknown fields
     if (!ALLOWED_FIELDS.has(key)) {
       const validFields = Array.from(ALLOWED_FIELDS).join(', ');
       throw new FrontmatterError(
@@ -115,10 +103,7 @@ function parseYamlContent(yamlContent: string): EditFields {
       );
     }
 
-    // Validate field types
     validateField(key, value);
-
-    // Assign to fields object
     (fields as Record<string, unknown>)[key] = value;
   }
 
@@ -186,7 +171,6 @@ function validateField(key: string, value: unknown): void {
       if (typeof value !== 'string') {
         throw new FrontmatterError(`Field 'dueDate' must be a string`);
       }
-      // Basic ISO date validation (YYYY-MM-DD) unless it's 'none'
       if (value !== 'none' && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         throw new FrontmatterError(
           `Invalid dueDate '${value}'. Use ISO format (YYYY-MM-DD) or 'none'`
@@ -202,7 +186,7 @@ function validateField(key: string, value: unknown): void {
   }
 }
 
-function formatPriority(priority: number): string {
+export function formatPriority(priority: number): string {
   switch (priority) {
     case 0:
       return 'none';
@@ -262,6 +246,5 @@ export function renderFrontmatter(issue: Issue): string {
 }
 
 function escapeYamlString(str: string): string {
-  // Escape single quotes by doubling them
   return str.replace(/'/g, "''");
 }

@@ -10,6 +10,7 @@ import {
 import {
   parseFrontmatter,
   renderFrontmatter,
+  formatPriority,
   type EditFields,
 } from '../../lib/frontmatter.ts';
 import {
@@ -24,7 +25,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 
-// Exported types for testing
 export interface EditOptions {
   title?: string;
   state?: string;
@@ -55,10 +55,8 @@ export interface Changes {
   [key: string]: { from: unknown; to: unknown };
 }
 
-// Editor function type for dependency injection
 export type EditorFn = (content: string, identifier: string) => Promise<string>;
 
-// Dependencies that can be injected for testing
 export interface EditDeps {
   openEditor?: EditorFn;
   readStdin?: () => Promise<string>;
@@ -70,25 +68,12 @@ function collect(value: string, previous: string[] = []): string[] {
   return previous.concat([value]);
 }
 
-function formatPriorityName(priority: number): string {
-  switch (priority) {
-    case 0:
-      return 'None';
-    case 1:
-      return 'Urgent';
-    case 2:
-      return 'High';
-    case 3:
-      return 'Medium';
-    case 4:
-      return 'Low';
-    default:
-      return String(priority);
-  }
+function formatPriorityDisplay(priority: number): string {
+  const name = formatPriority(priority);
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 function defaultHasStdinData(): boolean {
-  // Check if stdin is piped (not a TTY)
   return !process.stdin.isTTY;
 }
 
@@ -114,6 +99,12 @@ async function findEditor(name: string): Promise<string | null> {
   return null;
 }
 
+async function unlinkQuietly(path: string): Promise<void> {
+  try {
+    await Bun.file(path).unlink?.();
+  } catch {}
+}
+
 export async function defaultOpenEditor(
   content: string,
   identifier: string
@@ -129,43 +120,30 @@ export async function defaultOpenEditor(
     (await findEditor('nano'));
 
   if (!editor) {
-    await Bun.file(tempPath).unlink?.();
+    await unlinkQuietly(tempPath);
     throw new Error('No editor found. Set $EDITOR or install vim/nano');
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(editor, [tempPath], {
-      stdio: 'inherit',
-    });
+    const child = spawn(editor, [tempPath], { stdio: 'inherit' });
 
     child.on('error', async (err) => {
-      try {
-        await Bun.file(tempPath).unlink?.();
-      } catch {}
+      await unlinkQuietly(tempPath);
       reject(new Error(`Failed to start editor: ${err.message}`));
     });
 
     child.on('exit', async (code) => {
       if (code !== 0) {
-        try {
-          await Bun.file(tempPath).unlink?.();
-        } catch {}
+        await unlinkQuietly(tempPath);
         reject(new Error(`Editor exited with status ${code}`));
         return;
       }
-
       try {
         const result = await Bun.file(tempPath).text();
-        try {
-          await Bun.file(tempPath).unlink?.();
-        } catch {}
+        await unlinkQuietly(tempPath);
         resolve(result);
       } catch (err) {
-        reject(
-          new Error(
-            `Failed to read edited file: ${err instanceof Error ? err.message : String(err)}`
-          )
-        );
+        reject(new Error(`Failed to read edited file: ${err instanceof Error ? err.message : String(err)}`));
       }
     });
   });
@@ -177,9 +155,13 @@ async function buildUpdateInput(
   fields: EditFields,
   description?: string
 ): Promise<{ input: IssueUpdateInput; changes: Changes }> {
+  if (!issue.team?.key) {
+    throw new Error('Issue has no team');
+  }
+
   const input: IssueUpdateInput = {};
   const changes: Changes = {};
-  const teamId = issue.team?.key ? await getTeamIdFromIssue(client, issue) : '';
+  const teamId = await resolveTeam(client, issue.team.key);
 
   if (fields.title !== undefined) {
     input.title = fields.title;
@@ -200,29 +182,19 @@ async function buildUpdateInput(
     input.priority = resolvePriority(fields.priority);
     if (input.priority !== issue.priority) {
       changes.priority = {
-        from: formatPriorityName(issue.priority),
-        to: formatPriorityName(input.priority),
+        from: formatPriorityDisplay(issue.priority),
+        to: formatPriorityDisplay(input.priority),
       };
     }
   }
 
   if (fields.assignee !== undefined) {
     input.assigneeId = await resolveAssignee(client, fields.assignee);
-    const currentEmail = issue.assignee?.email || 'none';
-    const newAssignee =
-      fields.assignee === 'none'
-        ? 'none'
-        : fields.assignee === 'me'
-          ? 'me'
-          : fields.assignee;
-    if (
-      (input.assigneeId === null && issue.assignee) ||
-      (input.assigneeId !== null && !issue.assignee) ||
-      (input.assigneeId !== null &&
-        issue.assignee &&
-        input.assigneeId !== issue.assignee.id)
-    ) {
-      changes.assignee = { from: currentEmail, to: newAssignee };
+    if (input.assigneeId !== (issue.assignee?.id ?? null)) {
+      changes.assignee = {
+        from: issue.assignee?.email || 'none',
+        to: fields.assignee,
+      };
     }
   }
 
@@ -284,16 +256,6 @@ async function buildUpdateInput(
   return { input, changes };
 }
 
-async function getTeamIdFromIssue(
-  client: LinearClient,
-  issue: Issue
-): Promise<string> {
-  if (!issue.team?.key) {
-    throw new Error('Issue has no team');
-  }
-  return resolveTeam(client, issue.team.key);
-}
-
 function fieldsFromOptions(options: EditOptions): EditFields {
   const fields: EditFields = {};
 
@@ -303,12 +265,7 @@ function fieldsFromOptions(options: EditOptions): EditFields {
     fields.priority = options.priority.toLowerCase() as EditFields['priority'];
   if (options.assignee) fields.assignee = options.assignee;
   if (options.label) {
-    // Handle empty string as clear-all
-    if (options.label.length === 1 && options.label[0] === '') {
-      fields.labels = [];
-    } else {
-      fields.labels = options.label;
-    }
+    fields.labels = options.label.filter((l) => l !== '');
   }
   if (options.project) fields.project = options.project;
   if (options.team) fields.team = options.team;
@@ -345,10 +302,6 @@ function hasMutationFlags(options: EditOptions): boolean {
   );
 }
 
-/**
- * Core edit logic - separated for testability via dependency injection.
- * Returns a result object instead of printing/exiting for easier testing.
- */
 export async function executeEdit(
   client: LinearClient,
   identifier: string,
@@ -361,155 +314,71 @@ export async function executeEdit(
   const hasStdinData = deps.hasStdinData ?? defaultHasStdinData;
   const isTTY = deps.isTTY ?? process.stdin.isTTY;
 
-  // Determine input mode
   const hasFlags = hasMutationFlags(options);
   const hasRecover = !!options.recover;
   const hasInteractive = !!options.interactive;
-
-  // When -i or --recover is explicitly specified, they take precedence
-  // Only check for stdin if neither is specified
   const hasStdin = !hasInteractive && !hasRecover && hasStdinData();
 
-  // Check for mutual exclusivity
   if (hasStdin && hasFlags) {
-    return {
-      success: false,
-      error: 'Cannot combine stdin input with mutation flags.',
-    };
+    return { success: false, error: 'Cannot combine stdin input with mutation flags.' };
   }
   if (hasFlags && hasRecover) {
-    return {
-      success: false,
-      error: 'Cannot combine flags with --recover.',
-    };
+    return { success: false, error: 'Cannot combine flags with --recover.' };
   }
 
   let fields: EditFields;
   let description: string | undefined;
   let rawInput: string | undefined;
 
-  try {
-    // Determine input source and get raw input
-    if (hasRecover) {
-      // Recovery mode - open editor with recovery file contents
-      let recoveryContent: string;
-      try {
-        recoveryContent = await Bun.file(options.recover!).text();
-      } catch {
-        return {
-          success: false,
-          error: `Could not read recovery file '${options.recover}'`,
-        };
-      }
-
-      const edited = await openEditor(recoveryContent, identifier);
-
-      if (edited.trim() === '') {
-        return { success: true, cancelled: true };
-      }
-
-      rawInput = edited;
-    } else if (hasStdin) {
-      rawInput = await readStdin();
-    } else if (options.interactive || (!hasFlags && isTTY)) {
-      const original = renderFrontmatter(issue);
-      const edited = await openEditor(original, identifier);
-
-      if (edited.trim() === '' || edited === original) {
-        return { success: true, cancelled: true };
-      }
-
-      rawInput = edited;
-    } else if (hasFlags) {
-      fields = fieldsFromOptions(options);
-    } else {
-      return {
-        success: false,
-        error: 'No changes specified. Use flags (--title, --state, etc.) or pipe input via stdin',
-      };
-    }
-
-    // Parse frontmatter if we have raw input
-    if (rawInput) {
-      try {
-        const parsed = parseFrontmatter(rawInput);
-        fields = parsed.fields;
-        description = parsed.description;
-      } catch (err) {
-        const recoveryPath = await saveRecoveryFile(identifier, rawInput);
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          recoveryPath,
-        };
-      }
-    }
-
-    // Build the update input and track changes
-    let input: IssueUpdateInput;
-    let changes: Changes;
+  if (hasRecover) {
+    let recoveryContent: string;
     try {
-      const result = await buildUpdateInput(client, issue, fields!, description);
-      input = result.input;
-      changes = result.changes;
-    } catch (err) {
-      if (rawInput) {
-        const recoveryPath = await saveRecoveryFile(identifier, rawInput);
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          recoveryPath,
-        };
-      }
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+      recoveryContent = await Bun.file(options.recover!).text();
+    } catch {
+      return { success: false, error: `Could not read recovery file '${options.recover}'` };
+    }
+    const edited = await openEditor(recoveryContent, identifier);
+    if (edited.trim() === '') {
+      return { success: true, cancelled: true };
+    }
+    rawInput = edited;
+  } else if (hasStdin) {
+    rawInput = await readStdin();
+  } else if (options.interactive || (!hasFlags && isTTY)) {
+    const original = renderFrontmatter(issue);
+    const edited = await openEditor(original, identifier);
+    if (edited.trim() === '' || edited === original) {
+      return { success: true, cancelled: true };
+    }
+    rawInput = edited;
+  } else if (hasFlags) {
+    fields = fieldsFromOptions(options);
+  } else {
+    return { success: false, error: 'No changes specified. Use flags (--title, --state, etc.) or pipe input via stdin' };
+  }
+
+  try {
+    if (rawInput) {
+      const parsed = parseFrontmatter(rawInput);
+      fields = parsed.fields;
+      description = parsed.description;
     }
 
-    // Check if there are any changes
+    const { input, changes } = await buildUpdateInput(client, issue, fields!, description);
+
     if (Object.keys(input).length === 0) {
       return { success: true, noChanges: true };
     }
 
-    // Execute the update
-    let updated: Issue;
-    try {
-      updated = await updateIssue(client, issue.id, input);
-    } catch (err) {
-      if (rawInput) {
-        const recoveryPath = await saveRecoveryFile(identifier, rawInput);
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          recoveryPath,
-        };
-      }
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-
-    return {
-      success: true,
-      issue: updated,
-      changes,
-    };
+    const updated = await updateIssue(client, issue.id, input);
+    return { success: true, issue: updated, changes };
   } catch (err) {
-    // Unexpected errors
+    const error = err instanceof Error ? err.message : String(err);
     if (rawInput) {
       const recoveryPath = await saveRecoveryFile(identifier, rawInput);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-        recoveryPath,
-      };
+      return { success: false, error, recoveryPath };
     }
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    return { success: false, error };
   }
 }
 
@@ -565,7 +434,6 @@ export function createEditCommand(): Command {
 
       const client = new LinearClient(config.auth);
 
-      // Fetch the current issue first
       const issue = await getIssue(client, identifier);
       if (!issue) {
         console.error(`Error: Issue '${identifier}' not found`);
@@ -574,7 +442,6 @@ export function createEditCommand(): Command {
 
       const result = await executeEdit(client, identifier, issue, options);
 
-      // Handle result
       if (!result.success) {
         console.error(`Error: ${result.error}`);
         if (result.recoveryPath) {
@@ -595,7 +462,6 @@ export function createEditCommand(): Command {
         return;
       }
 
-      // Output success
       if (options.quiet) {
         return;
       }

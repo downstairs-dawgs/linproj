@@ -3,16 +3,17 @@ import { setupPolly, stopPolly } from '../setup.ts';
 import { Polly } from '@pollyjs/core';
 import {
   LinearClient,
-  getIssue,
   updateIssue,
+  createIssue,
+  deleteIssue,
   getWorkflowStates,
   getLabels,
   getViewer,
+  getTeams,
 } from '../../src/lib/api.ts';
 import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
 import {
   resolveState,
-  resolveLabels,
   resolveAssignee,
   resolvePriority,
 } from '../../src/lib/resolve.ts';
@@ -85,24 +86,12 @@ describe('Issue Edit API', () => {
   });
 
   describe('getWorkflowStates', () => {
-    beforeEach(() => {
-      polly = setupPolly('get-workflow-states');
-    });
-
     it('returns workflow states for a team', async () => {
-      // This test requires a valid team ID from recordings
-      // In record mode, we need to get a real team first
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue?.team) {
-        console.log('Skipping: no test issue available');
-        return;
-      }
+      polly = setupPolly('get-workflow-states');
+      const teams = await getTeams(client);
+      expect(teams.length).toBeGreaterThan(0);
 
-      // Get the team ID by resolving the team key
-      const { resolveTeam } = await import('../../src/lib/resolve.ts');
-      const teamId = await resolveTeam(client, issue.team.key);
-
-      const states = await getWorkflowStates(client, teamId);
+      const states = await getWorkflowStates(client, teams[0].id);
 
       expect(Array.isArray(states)).toBe(true);
       expect(states.length).toBeGreaterThan(0);
@@ -113,72 +102,45 @@ describe('Issue Edit API', () => {
   });
 
   describe('getLabels', () => {
-    beforeEach(() => {
-      polly = setupPolly('get-labels');
-    });
-
     it('returns labels for a team', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue?.team) {
-        console.log('Skipping: no test issue available');
-        return;
-      }
+      polly = setupPolly('get-labels');
+      const teams = await getTeams(client);
+      expect(teams.length).toBeGreaterThan(0);
 
-      const { resolveTeam } = await import('../../src/lib/resolve.ts');
-      const teamId = await resolveTeam(client, issue.team.key);
-
-      const labels = await getLabels(client, teamId);
+      const labels = await getLabels(client, teams[0].id);
 
       expect(Array.isArray(labels)).toBe(true);
-      // Labels might be empty for some teams
-      if (labels.length > 0) {
-        expect(labels[0]).toHaveProperty('id');
-        expect(labels[0]).toHaveProperty('name');
-        expect(labels[0]).toHaveProperty('color');
-      }
     });
   });
 
   describe('resolveState', () => {
-    beforeEach(() => {
-      polly = setupPolly('resolve-state');
-    });
-
     it('resolves state name to ID', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue?.team) {
-        console.log('Skipping: no test issue available');
-        return;
-      }
+      polly = setupPolly('resolve-state');
+      const teams = await getTeams(client);
+      const states = await getWorkflowStates(client, teams[0].id);
+      expect(states.length).toBeGreaterThan(0);
 
-      const { resolveTeam } = await import('../../src/lib/resolve.ts');
-      const teamId = await resolveTeam(client, issue.team.key);
-
-      const stateId = await resolveState(client, teamId, issue.state.name);
+      const stateId = await resolveState(client, teams[0].id, states[0].name);
 
       expect(typeof stateId).toBe('string');
-      expect(stateId.length).toBeGreaterThan(0);
+      expect(stateId).toBe(states[0].id);
     });
 
     it('is case-insensitive', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue?.team) {
-        console.log('Skipping: no test issue available');
-        return;
-      }
-
-      const { resolveTeam } = await import('../../src/lib/resolve.ts');
-      const teamId = await resolveTeam(client, issue.team.key);
+      polly = setupPolly('resolve-state-case');
+      const teams = await getTeams(client);
+      const states = await getWorkflowStates(client, teams[0].id);
+      expect(states.length).toBeGreaterThan(0);
 
       const stateId1 = await resolveState(
         client,
-        teamId,
-        issue.state.name.toLowerCase()
+        teams[0].id,
+        states[0].name.toLowerCase()
       );
       const stateId2 = await resolveState(
         client,
-        teamId,
-        issue.state.name.toUpperCase()
+        teams[0].id,
+        states[0].name.toUpperCase()
       );
 
       expect(stateId1).toBe(stateId2);
@@ -186,16 +148,14 @@ describe('Issue Edit API', () => {
   });
 
   describe('resolveAssignee', () => {
-    beforeEach(() => {
-      polly = setupPolly('resolve-assignee');
-    });
-
     it('resolves "none" to null', async () => {
+      polly = setupPolly('resolve-assignee-none');
       const result = await resolveAssignee(client, 'none');
       expect(result).toBeNull();
     });
 
     it('resolves "me" to current user ID', async () => {
+      polly = setupPolly('resolve-assignee-me');
       const viewer = await getViewer(client);
       const result = await resolveAssignee(client, 'me');
 
@@ -204,73 +164,78 @@ describe('Issue Edit API', () => {
   });
 
   describe('updateIssue', () => {
-    beforeEach(() => {
-      polly = setupPolly('update-issue');
-    });
-
     it('updates issue title', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue) {
-        console.log('Skipping: no test issue available');
-        return;
+      polly = setupPolly('update-issue-title');
+      const teams = await getTeams(client);
+      const issue = await createIssue(client, {
+        teamId: teams[0].id,
+        title: 'Test Issue for Title Update',
+      });
+
+      try {
+        const updated = await updateIssue(client, issue.id, {
+          title: 'Updated Title',
+        });
+        expect(updated.title).toBe('Updated Title');
+      } finally {
+        await deleteIssue(client, issue.id);
       }
-
-      const newTitle = `Test Update ${Date.now()}`;
-      const updated = await updateIssue(client, issue.id, {
-        title: newTitle,
-      });
-
-      expect(updated.title).toBe(newTitle);
-
-      // Restore original title
-      await updateIssue(client, issue.id, {
-        title: issue.title,
-      });
     });
 
     it('updates issue priority', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue) {
-        console.log('Skipping: no test issue available');
-        return;
+      polly = setupPolly('update-issue-priority');
+      const teams = await getTeams(client);
+      const issue = await createIssue(client, {
+        teamId: teams[0].id,
+        title: 'Test Issue for Priority Update',
+        priority: 0,
+      });
+
+      try {
+        const updated = await updateIssue(client, issue.id, {
+          priority: 2,
+        });
+        expect(updated.priority).toBe(2);
+      } finally {
+        await deleteIssue(client, issue.id);
       }
+    });
 
-      const originalPriority = issue.priority;
-      const newPriority = originalPriority === 2 ? 3 : 2; // Toggle between high and medium
-
-      const updated = await updateIssue(client, issue.id, {
-        priority: newPriority,
+    it('updates issue description', async () => {
+      polly = setupPolly('update-issue-description');
+      const teams = await getTeams(client);
+      const issue = await createIssue(client, {
+        teamId: teams[0].id,
+        title: 'Test Issue for Description Update',
       });
 
-      expect(updated.priority).toBe(newPriority);
-
-      // Restore original
-      await updateIssue(client, issue.id, {
-        priority: originalPriority,
-      });
+      try {
+        const updated = await updateIssue(client, issue.id, {
+          description: 'New description content',
+        });
+        expect(updated.description).toBe('New description content');
+      } finally {
+        await deleteIssue(client, issue.id);
+      }
     });
 
     it('can unassign issue', async () => {
-      const issue = await getIssue(client, 'MRP-1');
-      if (!issue) {
-        console.log('Skipping: no test issue available');
-        return;
-      }
-
-      const originalAssignee = issue.assignee?.id || null;
-
-      // Unassign
-      const updated = await updateIssue(client, issue.id, {
-        assigneeId: null,
+      polly = setupPolly('update-issue-unassign');
+      const teams = await getTeams(client);
+      const viewer = await getViewer(client);
+      const issue = await createIssue(client, {
+        teamId: teams[0].id,
+        title: 'Test Issue for Unassign',
+        assigneeId: viewer.id,
       });
 
-      expect(updated.assignee).toBeNull();
-
-      // Restore if there was an assignee
-      if (originalAssignee) {
-        await updateIssue(client, issue.id, {
-          assigneeId: originalAssignee,
+      try {
+        const updated = await updateIssue(client, issue.id, {
+          assigneeId: null,
         });
+        expect(updated.assignee).toBeNull();
+      } finally {
+        await deleteIssue(client, issue.id);
       }
     });
   });

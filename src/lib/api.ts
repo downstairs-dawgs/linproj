@@ -399,7 +399,6 @@ export async function searchIssues(
   return result.searchIssues.nodes;
 }
 
-// Types for issue editing
 export interface WorkflowState {
   id: string;
   name: string;

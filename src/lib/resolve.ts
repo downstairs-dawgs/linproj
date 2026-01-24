@@ -57,7 +57,6 @@ export async function resolveAssignee(
     const viewer = await getViewer(client);
     return viewer.id;
   }
-  // Look up by email
   const user = await getUserByEmail(client, assignee);
   if (!user) {
     throw new Error(`User '${assignee}' not found`);

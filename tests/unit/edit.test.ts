@@ -257,14 +257,13 @@ priority: badvalue
 
   describe('flag mode', () => {
     it('does not create recovery file on flag-based errors', async () => {
-      // Use issue without team to avoid team resolution API call
       const issueNoTeam = { ...mockIssue, team: undefined };
 
       const result = await executeEdit(
         mockClient,
         'TEST-456',
         issueNoTeam,
-        { priority: 'invalid' },
+        { title: 'New title' },
         {
           hasStdinData: () => false,
           isTTY: false,
@@ -272,8 +271,7 @@ priority: badvalue
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Invalid priority');
-      // No recovery for flag mode
+      expect(result.error).toContain('Issue has no team');
       expect(result.recoveryPath).toBeUndefined();
     });
   });
