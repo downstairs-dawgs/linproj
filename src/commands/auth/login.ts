@@ -1,6 +1,15 @@
 import { Command } from 'commander';
-import { readConfig, writeConfig, type ApiKeyAuth } from '../../lib/config.ts';
-import { LinearClient, getViewer, LinearAPIError } from '../../lib/api.ts';
+import {
+  readGlobalConfig,
+  writeGlobalConfig,
+  writeWorkspace,
+  getConfigVersion,
+  isUsingEnvAuth,
+  type ApiKeyAuth,
+  type ConfigV2,
+  type WorkspaceProfile,
+} from '../../lib/config.ts';
+import { LinearClient, getViewer, getOrganization, LinearAPIError } from '../../lib/api.ts';
 
 async function readApiKeyFromStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -71,6 +80,13 @@ async function promptApiKey(): Promise<string> {
 }
 
 async function loginWithApiKey(): Promise<void> {
+  if (isUsingEnvAuth()) {
+    console.error('Error: Cannot login while LINEAR_API_KEY environment variable is set.');
+    console.error('');
+    console.error('Unset the environment variable to use workspace-based authentication.');
+    process.exit(1);
+  }
+
   const apiKey = await promptApiKey();
 
   if (!apiKey) {
@@ -84,13 +100,28 @@ async function loginWithApiKey(): Promise<void> {
 
   try {
     const user = await getViewer(client);
+    const org = await getOrganization(client);
 
-    // Save to config
-    const config = await readConfig();
-    config.auth = auth;
-    await writeConfig(config);
+    // Create workspace profile
+    const workspace: WorkspaceProfile = {
+      organizationId: org.id,
+      organizationName: org.name,
+      urlKey: org.urlKey,
+      auth,
+    };
+
+    await writeWorkspace(workspace);
+
+    // Update global config to v2 and set current workspace
+    const v2Config: ConfigV2 = {
+      version: 2,
+      currentWorkspace: org.id,
+    };
+
+    await writeGlobalConfig(v2Config);
 
     console.log(`✓ Authenticated as ${user.name} (${user.email})`);
+    console.log(`  Organization: ${org.name}`);
   } catch (err) {
     if (err instanceof LinearAPIError) {
       if (err.status === 401) {
