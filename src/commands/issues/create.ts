@@ -1,18 +1,10 @@
 import { Command } from 'commander';
-import {
-  getAuth,
-  readGlobalConfig,
-  getConfigVersion,
-  getCurrentWorkspace,
-  listWorkspaces,
-  isUsingEnvAuth,
-} from '../../lib/config.ts';
+import { getAuthContext } from '../../lib/config.ts';
 import {
   LinearClient,
   getTeams,
   getViewer,
   createIssue,
-  type Team,
 } from '../../lib/api.ts';
 
 async function promptSelection(
@@ -137,44 +129,15 @@ export function createCreateCommand(): Command {
     )
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (options: CreateOptions) => {
-      let auth;
-      let defaultTeam: string | undefined;
-
+      let ctx;
       try {
-        // Handle workspace override
-        if (options.workspace && !isUsingEnvAuth()) {
-          const workspaces = await listWorkspaces();
-          const workspace = workspaces.find(
-            (w) => w.organizationName.toLowerCase() === options.workspace!.toLowerCase()
-          );
-          if (!workspace) {
-            console.error(`Error: Workspace '${options.workspace}' not found.`);
-            process.exit(1);
-          }
-          auth = workspace.auth;
-          defaultTeam = workspace.defaultTeam;
-        } else {
-          auth = await getAuth();
-
-          // Get default team from current workspace if using v2 config
-          if (!isUsingEnvAuth()) {
-            const globalConfig = await readGlobalConfig();
-            if (getConfigVersion(globalConfig) === 2) {
-              try {
-                const workspace = await getCurrentWorkspace();
-                defaultTeam = workspace.defaultTeam;
-              } catch {
-                // Ignore - no current workspace
-              }
-            }
-          }
-        }
+        ctx = await getAuthContext(options.workspace);
       } catch (err) {
         console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
-      const client = new LinearClient(auth);
+      const client = new LinearClient(ctx.auth);
 
       // Get teams
       const teams = await getTeams(client);
@@ -183,9 +146,8 @@ export function createCreateCommand(): Command {
         process.exit(1);
       }
 
-      // Select team: use provided --team, or fall back to default team, or prompt
       let teamId: string;
-      const teamKey = options.team ?? defaultTeam;
+      const teamKey = options.team ?? ctx.defaultTeam;
       if (teamKey) {
         const team = teams.find(
           (t) => t.key.toLowerCase() === teamKey.toLowerCase()
