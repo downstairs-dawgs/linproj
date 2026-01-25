@@ -41,7 +41,6 @@ export interface WorkspaceProfile {
 export type Config = ConfigV1 | ConfigV2;
 
 export async function readConfig(): Promise<Config> {
-  // Check for LINEAR_API_KEY environment variable first
   const envApiKey = process.env.LINEAR_API_KEY;
   if (envApiKey) {
     return {
@@ -98,7 +97,6 @@ export function getAuthHeader(auth: Auth): string {
   }
 }
 
-// Version detection
 export function getConfigVersion(config: unknown): 1 | 2 {
   if (typeof config === 'object' && config !== null) {
     if ('version' in config && config.version === 2) {
@@ -108,12 +106,10 @@ export function getConfigVersion(config: unknown): 1 | 2 {
   return 1; // Legacy or empty config
 }
 
-// Check if we're using env var auth (workspace commands not available)
 export function isUsingEnvAuth(): boolean {
   return !!process.env.LINEAR_API_KEY;
 }
 
-// Read global config file (raw, without env var override)
 export async function readGlobalConfig(): Promise<ConfigV1 | ConfigV2> {
   try {
     const content = await readFile(getConfigFile(), 'utf-8');
@@ -126,14 +122,12 @@ export async function readGlobalConfig(): Promise<ConfigV1 | ConfigV2> {
   }
 }
 
-// Write global config file
 export async function writeGlobalConfig(config: ConfigV1 | ConfigV2): Promise<void> {
   await mkdir(getConfigDir(), { recursive: true });
   await writeFile(getConfigFile(), JSON.stringify(config, null, 2) + '\n', 'utf-8');
   await chmod(getConfigFile(), 0o600);
 }
 
-// Read workspace profile by organization ID
 export async function readWorkspace(organizationId: string): Promise<WorkspaceProfile | null> {
   const workspacePath = join(getWorkspacesDir(), `${organizationId}.json`);
   try {
@@ -147,7 +141,6 @@ export async function readWorkspace(organizationId: string): Promise<WorkspacePr
   }
 }
 
-// Write workspace profile
 export async function writeWorkspace(workspace: WorkspaceProfile): Promise<void> {
   await mkdir(getWorkspacesDir(), { recursive: true });
   const workspacePath = join(getWorkspacesDir(), `${workspace.organizationId}.json`);
@@ -155,7 +148,6 @@ export async function writeWorkspace(workspace: WorkspaceProfile): Promise<void>
   await chmod(workspacePath, 0o600);
 }
 
-// Delete workspace profile
 export async function deleteWorkspace(organizationId: string): Promise<void> {
   const workspacePath = join(getWorkspacesDir(), `${organizationId}.json`);
   const { unlink } = await import('fs/promises');
@@ -168,7 +160,6 @@ export async function deleteWorkspace(organizationId: string): Promise<void> {
   }
 }
 
-// List all workspace profiles
 export async function listWorkspaces(): Promise<WorkspaceProfile[]> {
   try {
     const files = await readdir(getWorkspacesDir());
@@ -193,7 +184,6 @@ export async function listWorkspaces(): Promise<WorkspaceProfile[]> {
   }
 }
 
-// Get current workspace profile (throws if not configured)
 export async function getCurrentWorkspace(): Promise<WorkspaceProfile> {
   const globalConfig = await readGlobalConfig();
   const version = getConfigVersion(globalConfig);
@@ -228,9 +218,7 @@ export async function getCurrentWorkspace(): Promise<WorkspaceProfile> {
   return workspace;
 }
 
-// Get auth for API calls (supports both v1 and v2 config, plus env var)
 export async function getAuth(): Promise<Auth> {
-  // Check for LINEAR_API_KEY environment variable first
   const envApiKey = process.env.LINEAR_API_KEY;
   if (envApiKey) {
     return {
@@ -253,12 +241,10 @@ export async function getAuth(): Promise<Auth> {
     return config.auth;
   }
 
-  // V2: get auth from current workspace
   const workspace = await getCurrentWorkspace();
   return workspace.auth;
 }
 
-// Set current workspace by organization ID
 export async function setCurrentWorkspace(organizationId: string): Promise<void> {
   const workspace = await readWorkspace(organizationId);
   if (!workspace) {
@@ -270,4 +256,49 @@ export async function setCurrentWorkspace(organizationId: string): Promise<void>
     currentWorkspace: organizationId,
   };
   await writeGlobalConfig(config);
+}
+
+export async function findWorkspaceByName(name: string): Promise<WorkspaceProfile | null> {
+  const workspaces = await listWorkspaces();
+  return workspaces.find(
+    (w) => w.organizationName.toLowerCase() === name.toLowerCase()
+  ) ?? null;
+}
+
+export function requireWorkspaceAuth(): void {
+  if (isUsingEnvAuth()) {
+    throw new Error(
+      'Not available when LINEAR_API_KEY environment variable is set.\n\n' +
+      'Unset the variable and run `linproj auth login` to use workspaces.'
+    );
+  }
+}
+
+export interface AuthContext {
+  auth: Auth;
+  defaultTeam?: string;
+}
+
+export async function getAuthContext(workspaceName?: string): Promise<AuthContext> {
+  if (workspaceName && !isUsingEnvAuth()) {
+    const workspace = await findWorkspaceByName(workspaceName);
+    if (!workspace) {
+      throw new Error(`Workspace '${workspaceName}' not found.`);
+    }
+    return { auth: workspace.auth, defaultTeam: workspace.defaultTeam };
+  }
+
+  const auth = await getAuth();
+
+  if (isUsingEnvAuth()) {
+    return { auth };
+  }
+
+  const globalConfig = await readGlobalConfig();
+  if (getConfigVersion(globalConfig) === 2) {
+    const workspace = await getCurrentWorkspace();
+    return { auth, defaultTeam: workspace.defaultTeam };
+  }
+
+  return { auth };
 }
