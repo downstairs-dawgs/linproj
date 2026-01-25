@@ -8,35 +8,36 @@ import {
 } from '../../lib/config.ts';
 import { LinearClient, getViewer, LinearAPIError } from '../../lib/api.ts';
 
+async function showAuthStatus(client: LinearClient, method: string): Promise<boolean> {
+  try {
+    const user = await getViewer(client);
+    console.log(`Logged in as ${user.name} (${user.email}) via ${method}`);
+    return true;
+  } catch (err) {
+    if (err instanceof LinearAPIError && err.status === 401) {
+      console.log(`Authentication expired or invalid (${method})`);
+      console.log('Run `linproj auth login` to re-authenticate');
+      return false;
+    }
+    throw err;
+  }
+}
+
 export function createStatusCommand(): Command {
   return new Command('status')
     .description('Show current authentication status')
     .action(async () => {
-      // Check for env var auth first
       if (isUsingEnvAuth()) {
         const auth = { type: 'api-key' as const, apiKey: process.env.LINEAR_API_KEY! };
-        const client = new LinearClient(auth);
-
-        try {
-          const user = await getViewer(client);
-          console.log(`Logged in as ${user.name} (${user.email}) via API key (environment variable)`);
-        } catch (err) {
-          if (err instanceof LinearAPIError && err.status === 401) {
-            console.log('Authentication expired or invalid (environment variable LINEAR_API_KEY)');
-          } else {
-            throw err;
-          }
-        }
+        await showAuthStatus(new LinearClient(auth), 'API key (environment variable)');
         return;
       }
 
       const globalConfig = await readGlobalConfig();
       const version = getConfigVersion(globalConfig);
 
-      // Handle v1 config
       if (version === 1) {
         const v1Config = globalConfig as ConfigV1;
-
         if (!v1Config.auth) {
           console.log('Not authenticated');
           console.log('Run `linproj auth login` to authenticate');
@@ -44,47 +45,26 @@ export function createStatusCommand(): Command {
         }
 
         const method = v1Config.auth.type === 'api-key' ? 'API key' : 'OAuth';
-        const client = new LinearClient(v1Config.auth);
-
-        try {
-          const user = await getViewer(client);
-          console.log(`Logged in as ${user.name} (${user.email}) via ${method}`);
+        const ok = await showAuthStatus(new LinearClient(v1Config.auth), method);
+        if (ok) {
           console.log('');
           console.log('Note: Your config uses an older format.');
           console.log('Run `linproj config migrate` to enable workspace features.');
-        } catch (err) {
-          if (err instanceof LinearAPIError && err.status === 401) {
-            console.log(`Authentication expired or invalid (${method})`);
-            console.log('Run `linproj auth login` to re-authenticate');
-          } else {
-            throw err;
-          }
         }
         return;
       }
 
-      // Handle v2 config
       try {
         const workspace = await getCurrentWorkspace();
         const method = workspace.auth.type === 'api-key' ? 'API key' : 'OAuth';
-        const client = new LinearClient(workspace.auth);
-
-        try {
-          const user = await getViewer(client);
-          console.log(`Logged in as ${user.name} (${user.email}) via ${method}`);
+        const ok = await showAuthStatus(new LinearClient(workspace.auth), method);
+        if (ok) {
           console.log(`Workspace: ${workspace.organizationName}`);
           if (workspace.defaultTeam) {
             console.log(`Default team: ${workspace.defaultTeam}`);
           }
-        } catch (err) {
-          if (err instanceof LinearAPIError && err.status === 401) {
-            console.log(`Authentication expired or invalid (${method})`);
-            console.log('Run `linproj auth login` to re-authenticate');
-          } else {
-            throw err;
-          }
         }
-      } catch (err) {
+      } catch {
         console.log('Not authenticated');
         console.log('Run `linproj auth login` to authenticate');
       }

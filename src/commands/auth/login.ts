@@ -1,10 +1,8 @@
 import { Command } from 'commander';
 import {
-  readGlobalConfig,
   writeGlobalConfig,
   writeWorkspace,
-  getConfigVersion,
-  isUsingEnvAuth,
+  requireWorkspaceAuth,
   type ApiKeyAuth,
   type ConfigV2,
   type WorkspaceProfile,
@@ -20,13 +18,10 @@ async function readApiKeyFromStdin(): Promise<string> {
 }
 
 async function promptApiKey(): Promise<string> {
-  // Check if stdin is a TTY
   if (!process.stdin.isTTY) {
-    // Read from stdin pipe
     return readApiKeyFromStdin();
   }
 
-  // Interactive prompt with hidden input
   process.stdout.write(
     'To create an API key:\n' +
       '1. Go to Linear Settings > Account > Security & Access\n' +
@@ -35,7 +30,6 @@ async function promptApiKey(): Promise<string> {
       'Paste your API key: '
   );
 
-  // Hide input
   if (process.stdin.setRawMode) {
     process.stdin.setRawMode(true);
   }
@@ -46,7 +40,6 @@ async function promptApiKey(): Promise<string> {
     const onData = (data: Buffer) => {
       const char = data.toString('utf-8');
 
-      // Handle enter
       if (char === '\n' || char === '\r') {
         process.stdin.removeListener('data', onData);
         if (process.stdin.setRawMode) {
@@ -58,7 +51,6 @@ async function promptApiKey(): Promise<string> {
         return;
       }
 
-      // Handle backspace
       if (char === '\x7f' || char === '\b') {
         if (input.length > 0) {
           input = input.slice(0, -1);
@@ -66,7 +58,6 @@ async function promptApiKey(): Promise<string> {
         return;
       }
 
-      // Handle Ctrl+C
       if (char === '\x03') {
         process.stdout.write('\n');
         process.exit(1);
@@ -80,21 +71,19 @@ async function promptApiKey(): Promise<string> {
 }
 
 async function loginWithApiKey(): Promise<void> {
-  if (isUsingEnvAuth()) {
-    console.error('Error: Cannot login while LINEAR_API_KEY environment variable is set.');
-    console.error('');
-    console.error('Unset the environment variable to use workspace-based authentication.');
+  try {
+    requireWorkspaceAuth();
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }
 
   const apiKey = await promptApiKey();
-
   if (!apiKey) {
     console.error('Error: No API key provided');
     process.exit(1);
   }
 
-  // Validate the API key
   const auth: ApiKeyAuth = { type: 'api-key', apiKey };
   const client = new LinearClient(auth);
 
@@ -102,33 +91,25 @@ async function loginWithApiKey(): Promise<void> {
     const user = await getViewer(client);
     const org = await getOrganization(client);
 
-    // Create workspace profile
     const workspace: WorkspaceProfile = {
       organizationId: org.id,
       organizationName: org.name,
       urlKey: org.urlKey,
       auth,
     };
-
     await writeWorkspace(workspace);
 
-    // Update global config to v2 and set current workspace
     const v2Config: ConfigV2 = {
       version: 2,
       currentWorkspace: org.id,
     };
-
     await writeGlobalConfig(v2Config);
 
     console.log(`✓ Authenticated as ${user.name} (${user.email})`);
     console.log(`  Organization: ${org.name}`);
   } catch (err) {
     if (err instanceof LinearAPIError) {
-      if (err.status === 401) {
-        console.error('Error: Invalid API key');
-      } else {
-        console.error(`Error: ${err.message}`);
-      }
+      console.error(err.status === 401 ? 'Error: Invalid API key' : `Error: ${err.message}`);
     } else {
       console.error(`Error: ${err}`);
     }
