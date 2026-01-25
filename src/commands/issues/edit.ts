@@ -1,5 +1,9 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import {
+  getAuth,
+  listWorkspaces,
+  isUsingEnvAuth,
+} from '../../lib/config.ts';
 import {
   LinearClient,
   getIssue,
@@ -41,6 +45,7 @@ export interface EditOptions {
   json?: boolean;
   quiet?: boolean;
   recover?: string;
+  workspace?: string;
 }
 
 export interface EditResult {
@@ -478,16 +483,31 @@ export function createEditCommand(): Command {
     .option('--recover <file>', 'Recover from a previous failed edit')
     .option('--json', 'Output as JSON')
     .option('--quiet', 'Suppress output on success')
+    .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: EditOptions) => {
-      const config = await readConfig();
+      let auth;
 
-      if (!config.auth) {
-        console.error('Error: Not authenticated');
-        console.error("Run `linproj auth login` first");
+      try {
+        // Handle workspace override
+        if (options.workspace && !isUsingEnvAuth()) {
+          const workspaces = await listWorkspaces();
+          const workspace = workspaces.find(
+            (w) => w.organizationName.toLowerCase() === options.workspace!.toLowerCase()
+          );
+          if (!workspace) {
+            console.error(`Error: Workspace '${options.workspace}' not found.`);
+            process.exit(1);
+          }
+          auth = workspace.auth;
+        } else {
+          auth = await getAuth();
+        }
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
-      const client = new LinearClient(config.auth);
+      const client = new LinearClient(auth);
 
       const issue = await getIssue(client, identifier);
       if (!issue) {

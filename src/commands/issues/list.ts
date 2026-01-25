@@ -1,5 +1,12 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import {
+  getAuth,
+  readGlobalConfig,
+  getConfigVersion,
+  getCurrentWorkspace,
+  listWorkspaces,
+  isUsingEnvAuth,
+} from '../../lib/config.ts';
 import {
   LinearClient,
   listIssues,
@@ -38,6 +45,7 @@ interface ListOptions {
   priority?: string;
   limit?: string;
   json?: boolean;
+  workspace?: string;
 }
 
 export function createListCommand(): Command {
@@ -52,12 +60,42 @@ export function createListCommand(): Command {
     .option('--priority <priority>', 'Filter by priority (urgent, high, medium, low, none, or 0-4)')
     .option('-n, --limit <number>', 'Maximum number of issues to show', '50')
     .option('--json', 'Output as JSON')
+    .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (options: ListOptions) => {
-      const config = await readConfig();
+      let auth;
+      let defaultTeam: string | undefined;
 
-      if (!config.auth) {
-        console.error('Error: Not authenticated');
-        console.error('Run `linproj auth login` first');
+      try {
+        // Handle workspace override
+        if (options.workspace && !isUsingEnvAuth()) {
+          const workspaces = await listWorkspaces();
+          const workspace = workspaces.find(
+            (w) => w.organizationName.toLowerCase() === options.workspace!.toLowerCase()
+          );
+          if (!workspace) {
+            console.error(`Error: Workspace '${options.workspace}' not found.`);
+            process.exit(1);
+          }
+          auth = workspace.auth;
+          defaultTeam = workspace.defaultTeam;
+        } else {
+          auth = await getAuth();
+
+          // Get default team from current workspace if using v2 config
+          if (!isUsingEnvAuth()) {
+            const globalConfig = await readGlobalConfig();
+            if (getConfigVersion(globalConfig) === 2) {
+              try {
+                const workspace = await getCurrentWorkspace();
+                defaultTeam = workspace.defaultTeam;
+              } catch {
+                // Ignore - no current workspace
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
@@ -67,13 +105,15 @@ export function createListCommand(): Command {
         process.exit(1);
       }
 
-      const client = new LinearClient(config.auth);
+      const client = new LinearClient(auth);
 
       // Build filter
       const filter: IssueFilter = {};
 
-      if (options.team) {
-        filter.team = { key: { eq: options.team } };
+      // Use provided team, or fall back to default team
+      const teamKey = options.team ?? defaultTeam;
+      if (teamKey) {
+        filter.team = { key: { eq: teamKey } };
       }
 
       if (options.state) {
