@@ -134,6 +134,16 @@ export interface Team {
   key: string;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  urlKey: string;
+}
+
+export interface OrganizationResponse {
+  organization: Organization;
+}
+
 export interface ViewerResponse {
   viewer: User;
 }
@@ -202,6 +212,20 @@ export async function getViewer(client: LinearClient): Promise<User> {
   `;
   const result = await client.query<ViewerResponse>(query);
   return result.viewer;
+}
+
+export async function getOrganization(client: LinearClient): Promise<Organization> {
+  const query = `
+    query {
+      organization {
+        id
+        name
+        urlKey
+      }
+    }
+  `;
+  const result = await client.query<OrganizationResponse>(query);
+  return result.organization;
 }
 
 export async function getAssignedIssues(
