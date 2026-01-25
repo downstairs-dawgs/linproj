@@ -36,22 +36,18 @@ export function createMigrateCommand(): Command {
         const client = new LinearClient(v1Config.auth);
         const org = await getOrganization(client);
 
-        // Create workspace profile
         const workspace: WorkspaceProfile = {
           organizationId: org.id,
           organizationName: org.name,
           urlKey: org.urlKey,
           auth: v1Config.auth,
         };
-
         await writeWorkspace(workspace);
 
-        // Write v2 global config
         const v2Config: ConfigV2 = {
           version: 2,
           currentWorkspace: org.id,
         };
-
         await writeGlobalConfig(v2Config);
 
         console.log(`Created workspace: ${org.name}`);
