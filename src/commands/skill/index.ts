@@ -45,7 +45,7 @@ export function createSkillCommand(): Command {
       if (options.outdir) {
         outputPath = expandPath(join(options.outdir, 'SKILL.md'));
       } else if (options.mode) {
-        outputPath = expandPath(MODE_PATHS[options.mode]);
+        outputPath = expandPath(MODE_PATHS[options.mode]!);
       } else {
         // Default: print to stdout
         console.log(SKILL_MD);
