@@ -23,13 +23,13 @@ linproj issues done ENG-123                     # Mark issue done
 
 ## Features
 
-**Multi-workspace support** - Manage multiple Linear organizations, switch between them seamlessly
-**Default team** - Set per-workspace default team to skip `-t` flags
-**Quick actions** - `issues start` and `issues done` for fast state changes
-**Flexible editing** - Interactive editor, CLI flags, or piped YAML input
-**Scriptable** - `--json`, `--quiet`, `--field` options for automation
-**Environment auth** - Set `LINEAR_API_KEY` to bypass workspace config
-**AI agent support** - Install skills for Claude Code, Codex, and other AI tools
+- **Multi-workspace support** - Manage multiple Linear organizations, switch between them seamlessly
+- **Default team** - Set per-workspace default team to skip `-t` flags
+- **Quick actions** - `issues start` and `issues done` for fast state changes
+- **Flexible editing** - Interactive editor, CLI flags, or piped YAML input
+- **Scriptable** - `--json`, `--quiet`, `--field` options for automation
+- **Environment auth** - Set `LINEAR_API_KEY` to bypass workspace config
+- **AI agent support** - Install skills for Claude Code, Codex, and other AI tools
 
 ## Commands
 
