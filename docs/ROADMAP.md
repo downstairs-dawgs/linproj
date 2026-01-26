@@ -13,6 +13,10 @@ A prioritized list of features for the linproj CLI.
 - `issues search "query"` - Search issues by text
 - `issues edit` with CLI flags and interactive editor mode
 - `--json` output on `issues list`, `issues get`, `issues edit`
+- Workspace profiles for multiple Linear organizations
+- `workspace list`, `workspace switch`, `workspace current`
+- `config get`, `config set`, `config unset`, `config migrate`
+- Default team configuration per workspace
 
 ---
 
@@ -30,10 +34,10 @@ Better support for scripting and integration.
 
 Reduce friction for users who primarily work in one team.
 
-- [ ] `linproj config set default-team ENG`
-- [ ] `linproj config get default-team`
-- [ ] `linproj config unset default-team`
-- [ ] Use default team in `issues create` and `issues list` when not specified
+- [x] `linproj config set default-team ENG`
+- [x] `linproj config get default-team`
+- [x] `linproj config unset default-team`
+- [x] Use default team in `issues create` and `issues list` when not specified
 
 ---
 
@@ -54,11 +58,12 @@ See: [docs/design/authentication.md](design/authentication.md)
 
 Support users who belong to multiple Linear workspaces.
 
-- [ ] `linproj workspace list` - Show available workspaces
-- [ ] `linproj workspace switch <name>` - Set active workspace
-- [ ] `linproj workspace current` - Show active workspace
-- [ ] Store workspace preference in config
-- [ ] `--workspace` flag to override for single command
+- [x] `linproj workspace list` - Show available workspaces
+- [x] `linproj workspace switch <name>` - Set active workspace
+- [x] `linproj workspace current` - Show active workspace
+- [x] Store workspace preference in config
+- [x] `--workspace` flag to override for single command
+- [x] `linproj config migrate` - Migrate v1 config to v2 workspace format
 
 ### Comments
 
