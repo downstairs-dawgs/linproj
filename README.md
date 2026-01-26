@@ -8,106 +8,120 @@ CLI for Linear.
 curl -fsSL "https://github.com/downstairs-dawgs/linproj/releases/latest/download/linproj-$(uname -s)-$(uname -m)" -o ~/.local/bin/linproj && chmod +x ~/.local/bin/linproj
 ```
 
-Or build from source:
+Or build from source: `bun install && bun run build`
+
+## Quick Start
+
 ```bash
-bun install && bun run build
-./build/linproj --help
+linproj auth login                              # Authenticate with API key
+linproj config set default-team ENG             # Set default team (optional)
+linproj issues list                             # List issues
+linproj issues create --title "Bug" -a          # Create issue, assign to me
+linproj issues start ENG-123                    # Start working on issue
+linproj issues done ENG-123                     # Mark issue done
 ```
 
-## Usage
+## Features
+
+**Multi-workspace support** - Manage multiple Linear organizations, switch between them seamlessly
+**Default team** - Set per-workspace default team to skip `-t` flags
+**Quick actions** - `issues start` and `issues done` for fast state changes
+**Flexible editing** - Interactive editor, CLI flags, or piped YAML input
+**Scriptable** - `--json`, `--quiet`, `--field` options for automation
+**Environment auth** - Set `LINEAR_API_KEY` to bypass workspace config
+
+## Commands
+
+### Authentication
 
 ```bash
-# Authenticate with Linear (API key)
-linproj auth login
+linproj auth login                              # Authenticate (interactive)
+echo "lin_api_xxx" | linproj auth login         # Authenticate (piped)
+linproj auth status                             # Show current user/workspace
+linproj auth logout                             # Logout current workspace
+linproj auth logout --all                       # Logout all workspaces
+linproj auth logout -w "Acme Corp"              # Logout specific workspace
+```
 
-# Check auth status
-linproj auth status
+### Issues
 
-# List your assigned issues
-linproj issues list
+```bash
+# List and search
+linproj issues list                             # List issues (uses default team)
+linproj issues list -t ENG                      # List issues for team
+linproj issues list -a me                       # My assigned issues
+linproj issues list -a none                     # Unassigned issues
+linproj issues list --state-type started        # In-progress issues
+linproj issues list -s "In Review"              # By state name
+linproj issues list -l bug -l urgent            # By labels
+linproj issues list --priority high             # By priority
+linproj issues list --json                      # JSON output
+linproj issues search "login bug" -t ENG        # Full-text search
 
-# Create an issue
-linproj issues create --title "Fix bug" --assign-to-me
+# Get single issue
+linproj issues get ENG-123                      # Show issue details
+linproj issues get ENG-123 --json               # JSON output
+linproj issues get ENG-123 --field url          # Single field (for scripting)
 
-# Edit an issue (opens in editor)
-linproj issues edit PROJ-123
+# Create
+linproj issues create -t ENG --title "Bug"      # Create issue
+linproj issues create --title "Bug" -a          # Create and assign to me
+linproj issues create -p 1                      # With priority (1=urgent)
+
+# Quick state changes
+linproj issues start ENG-123                    # Move to "started" state
+linproj issues done ENG-123                     # Move to "completed" state
 
 # Edit with flags
-linproj issues edit PROJ-123 --state "In Progress" --assignee me --priority high
+linproj issues edit ENG-123 --state "In Review"
+linproj issues edit ENG-123 --assignee me
+linproj issues edit ENG-123 --assignee none
+linproj issues edit ENG-123 --priority urgent
+linproj issues edit ENG-123 --label bug --label backend
+linproj issues edit ENG-123 --team PLATFORM     # Move to different team
 
-# Logout
-linproj auth logout
-```
+# Edit interactively (opens $EDITOR)
+linproj issues edit ENG-123
 
-## Editing Issues
-
-The `issues edit` command supports multiple input modes:
-
-### Interactive Mode (default)
-
-Opens your editor with the issue in YAML frontmatter format:
-
-```bash
-linproj issues edit PROJ-123
-```
-
-The editor shows:
-```yaml
----
-title: 'Current issue title'
-state: 'In Progress'
-priority: high
-assignee: jane@example.com
-labels:
-  - bug
-  - backend
----
-
-Current description text here.
-```
-
-Delete fields you don't want to change. Save and close to apply.
-
-### Flag Mode
-
-Quick edits directly from the command line:
-
-```bash
-linproj issues edit PROJ-123 --title "New title"
-linproj issues edit PROJ-123 --state "Done" --priority high
-linproj issues edit PROJ-123 --assignee me          # Assign to yourself
-linproj issues edit PROJ-123 --assignee none        # Unassign
-linproj issues edit PROJ-123 --label bug --label urgent  # Set labels
-```
-
-### Piped Input (for scripting/AI agents)
-
-```bash
-cat <<EOF | linproj issues edit PROJ-123
+# Edit via stdin (for scripting/AI agents)
+# Description supports full markdown
+cat <<EOF | linproj issues edit ENG-123
 ---
 title: 'Updated title'
 state: 'In Progress'
 priority: high
 ---
-
-New description with **markdown** support.
+Description supports **markdown** formatting.
 EOF
 ```
 
-### Output Options
+### Workspaces
 
 ```bash
-linproj issues edit PROJ-123 --state "Done" --json   # JSON output
-linproj issues edit PROJ-123 --state "Done" --quiet  # No output on success
+linproj workspace list                          # List all workspaces (* = current)
+linproj workspace current                       # Show current workspace
+linproj workspace switch "Acme Corp"            # Switch workspace
 ```
 
-### Recovery
-
-If an edit fails after you've entered content, your input is saved to a recovery file:
+### Configuration
 
 ```bash
-linproj issues edit PROJ-123 --recover /tmp/linproj-recovery-PROJ-123-1706054400.md
+linproj config get default-team                 # Get default team
+linproj config set default-team ENG             # Set default team
+linproj config set default-team ""              # Clear default team
 ```
+
+## Filtering Reference
+
+| Option | Description | Values |
+|--------|-------------|--------|
+| `-t, --team` | Team key | `ENG`, `PLATFORM`, etc. |
+| `-s, --state` | State name | `"In Progress"`, `"Done"`, etc. |
+| `--state-type` | State type | `backlog`, `unstarted`, `started`, `completed`, `canceled` |
+| `-a, --assignee` | Assignee | `me`, `none`, or email |
+| `-l, --label` | Label (repeatable) | Label names |
+| `-p, --project` | Project name | Project names |
+| `--priority` | Priority | `urgent`/`1`, `high`/`2`, `medium`/`3`, `low`/`4`, `none`/`0` |
 
 ## Development
 
