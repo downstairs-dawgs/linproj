@@ -157,15 +157,15 @@ export class E2ETestContext {
 
   /**
    * Create a v1 config.
+   * @param apiKey - API key to use. Pass explicit value or use ctx.apiKey for real key.
+   *                 Omit to create empty v1 config (no auth).
    */
   async setupV1Config(apiKey?: string): Promise<void> {
-    const key = apiKey || this.originalLinearApiKey;
-
     await mkdir(this.configDir, { recursive: true });
 
     const config: Record<string, unknown> = {};
-    if (key) {
-      config.auth = { type: 'api-key', apiKey: key };
+    if (apiKey) {
+      config.auth = { type: 'api-key', apiKey };
     }
 
     await writeFile(

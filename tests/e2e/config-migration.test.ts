@@ -56,7 +56,7 @@ describe('config migration E2E', () => {
   it('migrates v1 config to v2 and creates workspace file', async () => {
     ctx.requireApiKey();
 
-    await ctx.setupV1Config();
+    await ctx.setupV1Config(ctx.apiKey);
 
     const result = await runCLI(['config', 'migrate'], {
       env: ctx.envWithoutApiKey(),
