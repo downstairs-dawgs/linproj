@@ -12,6 +12,7 @@ import { setupPolly, stopPolly } from '../setup.ts';
 import { IntegrationTestContext } from './helpers.ts';
 import { writeWorkspace, type WorkspaceProfile } from '../../src/lib/config.ts';
 import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
+import { LinearClient, deleteIssue } from '../../src/lib/api.ts';
 
 // Get auth for tests - must be called before IntegrationTestContext.setup()
 // because setup() deletes LINEAR_API_KEY from env
@@ -153,19 +154,35 @@ describe('issues create with default team', () => {
     polly = setupPolly('issues-create-with-default-team');
 
     let capturedTeamId: string | undefined;
+    let createdIssueId: string | undefined;
     polly.server.post('https://api.linear.app/graphql').on('request', (req) => {
       const body = JSON.parse(req.body as string);
       if (body.query.includes('issueCreate')) {
         capturedTeamId = body.variables?.input?.teamId;
       }
     });
+    polly.server.post('https://api.linear.app/graphql').on('response', (req, res) => {
+      const reqBody = JSON.parse(req.body as string);
+      if (reqBody.query.includes('issueCreate') && res.body) {
+        const resBody = JSON.parse(res.body as string);
+        createdIssueId = resBody?.data?.issueCreate?.issue?.id;
+      }
+    });
 
     const { createCreateCommand } = await import('../../src/commands/issues/create.ts');
     const command = createCreateCommand();
-    await command.parseAsync(['node', 'test', '--title', 'Test Issue']);
+    try {
+      await command.parseAsync(['node', 'test', '--title', 'Test Issue']);
 
-    // ENG team ID from recordings
-    expect(capturedTeamId).toBe('02b40065-0a2f-48e1-96e7-a1bc0d41f71f');
+      // ENG team ID from recordings
+      expect(capturedTeamId).toBe('02b40065-0a2f-48e1-96e7-a1bc0d41f71f');
+    } finally {
+      // Cleanup: delete created issue
+      if (createdIssueId) {
+        const client = new LinearClient(auth);
+        await deleteIssue(client, createdIssueId);
+      }
+    }
   });
 
   it('--workspace flag uses credentials from specified workspace', async () => {
@@ -192,25 +209,41 @@ describe('issues create with default team', () => {
     polly = setupPolly('issues-create-workspace-flag');
 
     let capturedTeamId: string | undefined;
+    let createdIssueId: string | undefined;
     polly.server.post('https://api.linear.app/graphql').on('request', (req) => {
       const body = JSON.parse(req.body as string);
       if (body.query.includes('issueCreate')) {
         capturedTeamId = body.variables?.input?.teamId;
       }
     });
+    polly.server.post('https://api.linear.app/graphql').on('response', (req, res) => {
+      const reqBody = JSON.parse(req.body as string);
+      if (reqBody.query.includes('issueCreate') && res.body) {
+        const resBody = JSON.parse(res.body as string);
+        createdIssueId = resBody?.data?.issueCreate?.issue?.id;
+      }
+    });
 
     const { createCreateCommand } = await import('../../src/commands/issues/create.ts');
     const command = createCreateCommand();
-    await command.parseAsync([
-      'node',
-      'test',
-      '--title',
-      'Test Issue',
-      '--workspace',
-      'Second Org',
-    ]);
+    try {
+      await command.parseAsync([
+        'node',
+        'test',
+        '--title',
+        'Test Issue',
+        '--workspace',
+        'Second Org',
+      ]);
 
-    // DOW team ID from recordings
-    expect(capturedTeamId).toBe('77715990-3013-4620-a72d-e615e6d7eeb9');
+      // DOW team ID from recordings
+      expect(capturedTeamId).toBe('77715990-3013-4620-a72d-e615e6d7eeb9');
+    } finally {
+      // Cleanup: delete created issue
+      if (createdIssueId) {
+        const client = new LinearClient(auth);
+        await deleteIssue(client, createdIssueId);
+      }
+    }
   });
 });
