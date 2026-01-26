@@ -50,7 +50,7 @@ export async function resolveAssignee(
   client: LinearClient,
   assignee: string
 ): Promise<string | null> {
-  if (assignee === 'none') {
+  if (assignee === 'none' || assignee === '') {
     return null;
   }
   if (assignee === 'me') {
@@ -68,7 +68,7 @@ export async function resolveProject(
   client: LinearClient,
   projectName: string
 ): Promise<string | null> {
-  if (projectName === 'none') {
+  if (projectName === 'none' || projectName === '') {
     return null;
   }
   const projects = await getProjects(client);
@@ -106,6 +106,9 @@ const PRIORITY_MAP: Record<string, number> = {
 };
 
 export function resolvePriority(priority: string): number {
+  if (priority === '') {
+    return 0; // Empty string means no priority
+  }
   const lower = priority.toLowerCase();
   if (lower in PRIORITY_MAP) {
     return PRIORITY_MAP[lower]!;

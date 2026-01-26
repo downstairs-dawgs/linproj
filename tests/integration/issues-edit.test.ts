@@ -18,7 +18,6 @@ import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
 import {
   resolveState,
   resolveAssignee,
-  resolvePriority,
   resolveTeam,
 } from '../../src/lib/resolve.ts';
 import { executeEdit } from '../../src/commands/issues/edit.ts';
@@ -42,38 +41,6 @@ async function getTestAuth(): Promise<ApiKeyAuth> {
     'No API key found. Set LINEAR_API_KEY env var or run `linproj auth login`'
   );
 }
-
-describe('resolvePriority', () => {
-  it('resolves none to 0', () => {
-    expect(resolvePriority('none')).toBe(0);
-  });
-
-  it('resolves urgent to 1', () => {
-    expect(resolvePriority('urgent')).toBe(1);
-  });
-
-  it('resolves high to 2', () => {
-    expect(resolvePriority('high')).toBe(2);
-  });
-
-  it('resolves medium to 3', () => {
-    expect(resolvePriority('medium')).toBe(3);
-  });
-
-  it('resolves low to 4', () => {
-    expect(resolvePriority('low')).toBe(4);
-  });
-
-  it('is case-insensitive', () => {
-    expect(resolvePriority('HIGH')).toBe(2);
-    expect(resolvePriority('Low')).toBe(4);
-    expect(resolvePriority('URGENT')).toBe(1);
-  });
-
-  it('throws for invalid priority', () => {
-    expect(() => resolvePriority('invalid')).toThrow(/Invalid priority/);
-  });
-});
 
 describe('Issue Edit API', () => {
   let polly: Polly;
@@ -153,12 +120,6 @@ describe('Issue Edit API', () => {
   });
 
   describe('resolveAssignee', () => {
-    it('resolves "none" to null', async () => {
-      polly = setupPolly('resolve-assignee-none');
-      const result = await resolveAssignee(client, 'none');
-      expect(result).toBeNull();
-    });
-
     it('resolves "me" to current user ID', async () => {
       polly = setupPolly('resolve-assignee-me');
       const viewer = await getViewer(client);

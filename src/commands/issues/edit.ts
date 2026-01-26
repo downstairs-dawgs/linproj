@@ -63,7 +63,7 @@ export type EditorFn = (content: string, identifier: string) => Promise<string>;
 export interface EditDeps {
   openEditor?: EditorFn;
   readStdin?: () => Promise<string>;
-  hasStdinData?: () => boolean;
+  hasStdinData?: () => Promise<boolean> | boolean;
   isTTY?: boolean;
 }
 
@@ -76,8 +76,27 @@ function formatPriorityDisplay(priority: number): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function defaultHasStdinData(): boolean {
-  return !process.stdin.isTTY;
+async function defaultHasStdinData(): Promise<boolean> {
+  // TTY means interactive terminal, definitely no piped data
+  if (process.stdin.isTTY) return false;
+
+  // Check if data is already buffered
+  if (process.stdin.readableLength > 0) return true;
+
+  // Wait briefly to see if data arrives (handles pipe with no data yet)
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      process.stdin.off('readable', onReadable);
+      resolve(false);
+    }, 10);
+
+    const onReadable = () => {
+      clearTimeout(timeout);
+      resolve(process.stdin.readableLength > 0);
+    };
+
+    process.stdin.once('readable', onReadable);
+  });
 }
 
 async function defaultReadStdin(): Promise<string> {
@@ -317,13 +336,13 @@ function fieldsFromOptions(options: EditOptions): EditFields {
 
   if (options.title) fields.title = options.title;
   if (options.state) fields.state = options.state;
-  if (options.priority)
+  if (options.priority !== undefined)
     fields.priority = options.priority.toLowerCase() as EditFields['priority'];
-  if (options.assignee) fields.assignee = options.assignee;
+  if (options.assignee !== undefined) fields.assignee = options.assignee;
   if (options.label) {
     fields.labels = options.label.filter((l) => l !== '');
   }
-  if (options.project) fields.project = options.project;
+  if (options.project !== undefined) fields.project = options.project;
   if (options.team) fields.team = options.team;
   if (options.dueDate) fields.dueDate = options.dueDate;
   if (options.estimate) fields.estimate = parseFloat(options.estimate);
@@ -348,10 +367,10 @@ function hasMutationFlags(options: EditOptions): boolean {
   return !!(
     options.title ||
     options.state ||
-    options.priority ||
-    options.assignee ||
+    options.priority !== undefined ||
+    options.assignee !== undefined ||
     options.label ||
-    options.project ||
+    options.project !== undefined ||
     options.team ||
     options.dueDate ||
     options.estimate
@@ -373,7 +392,7 @@ export async function executeEdit(
   const hasFlags = hasMutationFlags(options);
   const hasRecover = !!options.recover;
   const hasInteractive = !!options.interactive;
-  const hasStdin = !hasInteractive && !hasRecover && hasStdinData();
+  const hasStdin = !hasInteractive && !hasRecover && await hasStdinData();
 
   if (hasStdin && hasFlags) {
     return { success: false, error: 'Cannot combine stdin input with mutation flags.' };

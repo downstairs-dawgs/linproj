@@ -29,6 +29,7 @@ linproj issues done ENG-123                     # Mark issue done
 **Flexible editing** - Interactive editor, CLI flags, or piped YAML input
 **Scriptable** - `--json`, `--quiet`, `--field` options for automation
 **Environment auth** - Set `LINEAR_API_KEY` to bypass workspace config
+**AI agent support** - Install skills for Claude Code, Codex, and other AI tools
 
 ## Commands
 
@@ -110,6 +111,16 @@ linproj config get default-team                 # Get default team
 linproj config set default-team ENG             # Set default team
 linproj config set default-team ""              # Clear default team
 ```
+
+### AI Agent Integration
+
+```bash
+linproj skill                                   # Print SKILL.md to stdout
+linproj skill --mode claude                     # Install to ~/.claude/skills/linear/
+linproj skill --mode claude-project --force     # Install to .claude/skills/linear/
+```
+
+Installs an [Agent Skills](https://agentskills.io) spec for Claude Code, Codex, and other AI tools. Modes: `claude`, `codex`, `universal`, `github`.
 
 ## Filtering Reference
 
