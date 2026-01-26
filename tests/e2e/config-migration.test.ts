@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { E2ETestContext, runCLI } from './helpers.ts';
+import { E2ETestContext, runCLI } from './harness.ts';
 
 describe('config migration E2E', () => {
   const ctx = new E2ETestContext();

@@ -1,8 +1,7 @@
 import { Command } from 'commander';
 import {
-  readGlobalConfig,
   writeGlobalConfig,
-  getConfigVersion,
+  ensureV2Config,
   listWorkspaces,
   deleteWorkspace,
   findWorkspaceByName,
@@ -54,16 +53,13 @@ export function createLogoutCommand(): Command {
         process.exit(1);
       }
 
-      const globalConfig = await readGlobalConfig();
-      const version = getConfigVersion(globalConfig);
-
-      if (version === 1) {
-        console.error('Error: Config migration required.');
-        console.error('Run `linproj config migrate` first.');
+      let config: ConfigV2;
+      try {
+        config = await ensureV2Config();
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
-
-      const config = globalConfig as ConfigV2;
       const workspaces = await listWorkspaces();
 
       if (workspaces.length === 0) {

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { runCLI } from './helpers.ts';
+import { runCLI } from './harness.ts';
 
 describe('environment variable override E2E', () => {
   it('workspace list fails when LINEAR_API_KEY is set', async () => {

@@ -2,13 +2,11 @@ import { Command } from 'commander';
 import {
   getCurrentWorkspace,
   writeWorkspace,
-  readGlobalConfig,
-  getConfigVersion,
+  ensureV2Config,
 } from '../../lib/config.ts';
 import { LinearClient, getTeams } from '../../lib/api.ts';
 
-function requireV2Config(): void {
-  // Note: This is a sync check, full config version check happens in action
+function requireNoEnvAuth(): void {
   if (process.env.LINEAR_API_KEY) {
     console.error('Error: LINEAR_API_KEY environment variable is set.');
     console.error('Unset it to manage workspace configuration.');
@@ -16,13 +14,11 @@ function requireV2Config(): void {
   }
 }
 
-async function ensureV2Config(): Promise<void> {
-  const globalConfig = await readGlobalConfig();
-  const version = getConfigVersion(globalConfig);
-
-  if (version === 1) {
-    console.error('Error: Config migration required.');
-    console.error('Run `linproj config migrate` first.');
+async function requireV2Config(): Promise<void> {
+  try {
+    await ensureV2Config();
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }
 }
@@ -32,8 +28,8 @@ export function createGetCommand(): Command {
     .description('Get a config value for the current workspace')
     .argument('<key>', 'Config key to get (supported: default-team)')
     .action(async (key: string) => {
-      requireV2Config();
-      await ensureV2Config();
+      requireNoEnvAuth();
+      await requireV2Config();
 
       if (key !== 'default-team') {
         console.error(`Error: Unknown config key '${key}'`);
@@ -59,8 +55,8 @@ export function createSetCommand(): Command {
     .argument('<key>', 'Config key to set (supported: default-team)')
     .argument('<value>', 'Value to set (use "" to clear)')
     .action(async (key: string, value: string) => {
-      requireV2Config();
-      await ensureV2Config();
+      requireNoEnvAuth();
+      await requireV2Config();
 
       if (key !== 'default-team') {
         console.error(`Error: Unknown config key '${key}'`);

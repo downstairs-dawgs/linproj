@@ -273,6 +273,23 @@ export interface AuthContext {
   defaultTeam?: string;
 }
 
+/**
+ * Ensures the config is v2. Throws an error with migration instructions if v1.
+ * Returns the v2 config for convenience.
+ */
+export async function ensureV2Config(): Promise<ConfigV2> {
+  const globalConfig = await readGlobalConfig();
+  const version = getConfigVersion(globalConfig);
+
+  if (version === 1) {
+    throw new Error(
+      'Config migration required. Run `linproj config migrate`.'
+    );
+  }
+
+  return globalConfig as ConfigV2;
+}
+
 export async function getAuthContext(workspaceName?: string): Promise<AuthContext> {
   if (workspaceName && !isUsingEnvAuth()) {
     const workspace = await findWorkspaceByName(workspaceName);

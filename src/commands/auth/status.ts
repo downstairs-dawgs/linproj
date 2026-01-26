@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import {
-  readGlobalConfig,
-  getConfigVersion,
+  ensureV2Config,
   getCurrentWorkspace,
   isUsingEnvAuth,
 } from '../../lib/config.ts';
@@ -32,12 +31,10 @@ export function createStatusCommand(): Command {
         return;
       }
 
-      const globalConfig = await readGlobalConfig();
-      const version = getConfigVersion(globalConfig);
-
-      if (version === 1) {
-        console.error('Error: Config migration required.');
-        console.error('Run `linproj config migrate` to update your configuration.');
+      try {
+        await ensureV2Config();
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
