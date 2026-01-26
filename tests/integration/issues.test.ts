@@ -12,7 +12,32 @@ import { setupPolly, stopPolly } from '../setup.ts';
 import { IntegrationTestContext } from './helpers.ts';
 import { writeWorkspace, type WorkspaceProfile } from '../../src/lib/config.ts';
 import { readConfig, type ApiKeyAuth } from '../../src/lib/config.ts';
-import { LinearClient, deleteIssue } from '../../src/lib/api.ts';
+import { LinearClient, getIssue, deleteIssue } from '../../src/lib/api.ts';
+
+/**
+ * Extract issue identifier from console output.
+ * The create command logs: "✓ Created issue ENG-123: Title"
+ */
+function extractIssueIdentifier(consoleLogSpy: { mock: { calls: unknown[][] } }): string | null {
+  for (const call of consoleLogSpy.mock.calls) {
+    const msg = String(call[0]);
+    const match = msg.match(/Created issue ([A-Z]+-\d+):/);
+    if (match) {
+      return match[1]!;
+    }
+  }
+  return null;
+}
+
+/**
+ * Delete an issue by identifier (e.g., "ENG-123").
+ */
+async function deleteIssueByIdentifier(client: LinearClient, identifier: string): Promise<void> {
+  const issue = await getIssue(client, identifier);
+  if (issue) {
+    await deleteIssue(client, issue.id);
+  }
+}
 
 // Get auth for tests - must be called before IntegrationTestContext.setup()
 // because setup() deletes LINEAR_API_KEY from env
@@ -154,18 +179,10 @@ describe('issues create with default team', () => {
     polly = setupPolly('issues-create-with-default-team');
 
     let capturedTeamId: string | undefined;
-    let createdIssueId: string | undefined;
     polly.server.post('https://api.linear.app/graphql').on('request', (req) => {
       const body = JSON.parse(req.body as string);
       if (body.query.includes('issueCreate')) {
         capturedTeamId = body.variables?.input?.teamId;
-      }
-    });
-    polly.server.post('https://api.linear.app/graphql').on('response', (req, res) => {
-      const reqBody = JSON.parse(req.body as string);
-      if (reqBody.query.includes('issueCreate') && res.body) {
-        const resBody = JSON.parse(res.body as string);
-        createdIssueId = resBody?.data?.issueCreate?.issue?.id;
       }
     });
 
@@ -178,9 +195,10 @@ describe('issues create with default team', () => {
       expect(capturedTeamId).toBe('02b40065-0a2f-48e1-96e7-a1bc0d41f71f');
     } finally {
       // Cleanup: delete created issue
-      if (createdIssueId) {
+      const identifier = extractIssueIdentifier(ctx.consoleLogSpy);
+      if (identifier) {
         const client = new LinearClient(auth);
-        await deleteIssue(client, createdIssueId);
+        await deleteIssueByIdentifier(client, identifier);
       }
     }
   });
@@ -209,18 +227,10 @@ describe('issues create with default team', () => {
     polly = setupPolly('issues-create-workspace-flag');
 
     let capturedTeamId: string | undefined;
-    let createdIssueId: string | undefined;
     polly.server.post('https://api.linear.app/graphql').on('request', (req) => {
       const body = JSON.parse(req.body as string);
       if (body.query.includes('issueCreate')) {
         capturedTeamId = body.variables?.input?.teamId;
-      }
-    });
-    polly.server.post('https://api.linear.app/graphql').on('response', (req, res) => {
-      const reqBody = JSON.parse(req.body as string);
-      if (reqBody.query.includes('issueCreate') && res.body) {
-        const resBody = JSON.parse(res.body as string);
-        createdIssueId = resBody?.data?.issueCreate?.issue?.id;
       }
     });
 
@@ -240,9 +250,10 @@ describe('issues create with default team', () => {
       expect(capturedTeamId).toBe('77715990-3013-4620-a72d-e615e6d7eeb9');
     } finally {
       // Cleanup: delete created issue
-      if (createdIssueId) {
+      const identifier = extractIssueIdentifier(ctx.consoleLogSpy);
+      if (identifier) {
         const client = new LinearClient(auth);
-        await deleteIssue(client, createdIssueId);
+        await deleteIssueByIdentifier(client, identifier);
       }
     }
   });
