@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import { getAuthContext } from '../../lib/config.ts';
 import {
   LinearClient,
   searchIssues,
@@ -8,25 +8,7 @@ import {
   type StateType,
 } from '../../lib/api.ts';
 import { outputIssues } from '../../lib/output.ts';
-
-function parsePriority(value: string): number {
-  const map: Record<string, number> = {
-    none: 0,
-    urgent: 1,
-    high: 2,
-    medium: 3,
-    low: 4,
-  };
-  const lower = value.toLowerCase();
-  if (lower in map) {
-    return map[lower]!;
-  }
-  const num = parseInt(value, 10);
-  if (isNaN(num) || num < 0 || num > 4) {
-    throw new Error(`Invalid priority '${value}'. Use: none, urgent, high, medium, low, or 0-4`);
-  }
-  return num;
-}
+import { resolvePriority } from '../../lib/resolve.ts';
 
 interface SearchOptions {
   team?: string;
@@ -36,6 +18,7 @@ interface SearchOptions {
   priority?: string;
   limit?: string;
   json?: boolean;
+  workspace?: string;
 }
 
 export function createSearchCommand(): Command {
@@ -49,12 +32,13 @@ export function createSearchCommand(): Command {
     .option('--priority <priority>', 'Filter by priority (urgent, high, medium, low, none, or 0-4)')
     .option('-n, --limit <number>', 'Maximum results', '25')
     .option('--json', 'Output as JSON')
+    .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (query: string, options: SearchOptions) => {
-      const config = await readConfig();
-
-      if (!config.auth) {
-        console.error('Error: Not authenticated');
-        console.error('Run `linproj auth login` first');
+      let ctx;
+      try {
+        ctx = await getAuthContext(options.workspace);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
@@ -64,13 +48,12 @@ export function createSearchCommand(): Command {
         process.exit(1);
       }
 
-      const client = new LinearClient(config.auth);
+      const client = new LinearClient(ctx.auth);
 
-      // Build filter
       const filter: IssueFilter = {};
-
-      if (options.team) {
-        filter.team = { key: { eq: options.team } };
+      const teamKey = options.team ?? ctx.defaultTeam;
+      if (teamKey) {
+        filter.team = { key: { eq: teamKey } };
       }
 
       if (options.state) {
@@ -100,8 +83,7 @@ export function createSearchCommand(): Command {
 
       if (options.priority) {
         try {
-          const priorityValue = parsePriority(options.priority);
-          filter.priority = { eq: priorityValue };
+          filter.priority = { eq: resolvePriority(options.priority) };
         } catch (err) {
           console.error(`Error: ${(err as Error).message}`);
           process.exit(1);

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import { getAuthContext } from '../../lib/config.ts';
 import { LinearClient, getIssue, type Issue } from '../../lib/api.ts';
 
 function formatPriority(priority: number): string {
@@ -99,6 +99,7 @@ function getFieldValue(issue: Issue, field: string): string {
 interface GetOptions {
   json?: boolean;
   field?: string;
+  workspace?: string;
 }
 
 export function createGetCommand(): Command {
@@ -107,16 +108,17 @@ export function createGetCommand(): Command {
     .argument('<identifier>', 'Issue identifier (e.g., PROJ-123)')
     .option('--json', 'Output as JSON')
     .option('--field <field>', 'Output a single field (id, url, state, etc.)')
+    .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: GetOptions) => {
-      const config = await readConfig();
-
-      if (!config.auth) {
-        console.error('Error: Not authenticated');
-        console.error('Run `linproj auth login` first');
+      let ctx;
+      try {
+        ctx = await getAuthContext(options.workspace);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
-      const client = new LinearClient(config.auth);
+      const client = new LinearClient(ctx.auth);
       const issue = await getIssue(client, identifier);
 
       if (!issue) {

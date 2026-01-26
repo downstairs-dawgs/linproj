@@ -1,33 +1,56 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import {
+  ensureV2Config,
+  getCurrentWorkspace,
+  isUsingEnvAuth,
+} from '../../lib/config.ts';
 import { LinearClient, getViewer, LinearAPIError } from '../../lib/api.ts';
+
+async function showAuthStatus(client: LinearClient, method: string): Promise<boolean> {
+  try {
+    const user = await getViewer(client);
+    console.log(`Logged in as ${user.name} (${user.email}) via ${method}`);
+    return true;
+  } catch (err) {
+    if (err instanceof LinearAPIError && err.status === 401) {
+      console.log(`Authentication expired or invalid (${method})`);
+      console.log('Run `linproj auth login` to re-authenticate');
+      return false;
+    }
+    throw err;
+  }
+}
 
 export function createStatusCommand(): Command {
   return new Command('status')
     .description('Show current authentication status')
     .action(async () => {
-      const config = await readConfig();
-
-      if (!config.auth) {
-        console.log('Not authenticated');
-        console.log('Run `linproj auth login` to authenticate');
+      if (isUsingEnvAuth()) {
+        const auth = { type: 'api-key' as const, apiKey: process.env.LINEAR_API_KEY! };
+        await showAuthStatus(new LinearClient(auth), 'API key (environment variable)');
         return;
       }
 
-      const method = config.auth.type === 'api-key' ? 'API key' : 'OAuth';
-
-      // Verify the token is still valid
-      const client = new LinearClient(config.auth);
       try {
-        const user = await getViewer(client);
-        console.log(`Logged in as ${user.name} (${user.email}) via ${method}`);
+        await ensureV2Config();
       } catch (err) {
-        if (err instanceof LinearAPIError && err.status === 401) {
-          console.log(`Authentication expired or invalid (${method})`);
-          console.log('Run `linproj auth login` to re-authenticate');
-        } else {
-          throw err;
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
+      try {
+        const workspace = await getCurrentWorkspace();
+        const method = workspace.auth.type === 'api-key' ? 'API key' : 'OAuth';
+        const ok = await showAuthStatus(new LinearClient(workspace.auth), method);
+        if (ok) {
+          console.log(`Workspace: ${workspace.organizationName}`);
+          if (workspace.defaultTeam) {
+            console.log(`Default team: ${workspace.defaultTeam}`);
+          }
         }
+      } catch {
+        console.log('Not authenticated');
+        console.log('Run `linproj auth login` to authenticate');
       }
     });
 }

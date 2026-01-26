@@ -1,11 +1,10 @@
 import { Command } from 'commander';
-import { readConfig } from '../../lib/config.ts';
+import { getAuthContext } from '../../lib/config.ts';
 import {
   LinearClient,
   getTeams,
   getViewer,
   createIssue,
-  type Team,
 } from '../../lib/api.ts';
 
 async function promptSelection(
@@ -114,6 +113,7 @@ interface CreateOptions {
   description?: string;
   assignToMe?: boolean;
   priority?: string;
+  workspace?: string;
 }
 
 export function createCreateCommand(): Command {
@@ -127,16 +127,17 @@ export function createCreateCommand(): Command {
       '-p, --priority <priority>',
       'Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low'
     )
+    .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (options: CreateOptions) => {
-      const config = await readConfig();
-
-      if (!config.auth) {
-        console.error('Error: Not authenticated');
-        console.error('Run `linproj auth login` first');
+      let ctx;
+      try {
+        ctx = await getAuthContext(options.workspace);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
 
-      const client = new LinearClient(config.auth);
+      const client = new LinearClient(ctx.auth);
 
       // Get teams
       const teams = await getTeams(client);
@@ -145,14 +146,14 @@ export function createCreateCommand(): Command {
         process.exit(1);
       }
 
-      // Select team
       let teamId: string;
-      if (options.team) {
+      const teamKey = options.team ?? ctx.defaultTeam;
+      if (teamKey) {
         const team = teams.find(
-          (t) => t.key.toLowerCase() === options.team!.toLowerCase()
+          (t) => t.key.toLowerCase() === teamKey.toLowerCase()
         );
         if (!team) {
-          console.error(`Error: Team "${options.team}" not found`);
+          console.error(`Error: Team "${teamKey}" not found`);
           console.error('Available teams:', teams.map((t) => t.key).join(', '));
           process.exit(1);
         }

@@ -22,12 +22,34 @@ Review pull request feedback on design documents, respond to each comment, updat
 gh pr view --json number,title,url,headRefName
 ```
 
-### 2. Fetch Review Comments
+### 2. Fetch Unresolved Review Threads
 
-Get all review comments on the PR:
+Get only unresolved review threads on the PR:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/{pr_number}/comments
+gh api graphql -f query='
+query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 50) {
+            nodes {
+              id
+              body
+              author { login }
+              path
+              line
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  }
+}' -f owner='{owner}' -f repo='{repo}' -F pr={pr_number} | jq '.data.repository.pullRequest.reviewThreads.nodes | map(select(.isResolved == false))'
 ```
 
 ### 3. Analyze Each Comment
@@ -81,28 +103,16 @@ git push
 
 ### 9. Resolve Comment Threads
 
-Get thread IDs and resolve each addressed thread:
+Resolve each addressed thread (thread IDs were already retrieved in step 2):
 
 ```bash
-# Get thread IDs
-gh api graphql -f query='
-query {
-  repository(owner: "{owner}", name: "{repo}") {
-    pullRequest(number: {pr_number}) {
-      reviewThreads(first: 50) {
-        nodes { id isResolved }
-      }
-    }
-  }
-}'
-
 # Resolve each thread
 gh api graphql -f query='
-mutation {
-  resolveReviewThread(input: {threadId: "{thread_id}"}) {
+mutation($threadId: ID!) {
+  resolveReviewThread(input: {threadId: $threadId}) {
     thread { isResolved }
   }
-}'
+}' -f threadId='{thread_id}'
 ```
 
 ## Output Format

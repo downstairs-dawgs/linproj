@@ -12,6 +12,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { readdirSync, unlinkSync, existsSync } from 'node:fs';
+import { LinearClient, getIssue, deleteIssue } from '../../src/lib/api.ts';
+import { getAuth } from '../../src/lib/config.ts';
 
 const CLI_PATH = join(import.meta.dir, '../../src/index.ts');
 const EDITORS_PATH = join(import.meta.dir, '../fixtures/editors');
@@ -106,12 +108,13 @@ describe('issues edit interactive E2E', () => {
   });
 
   afterAll(async () => {
-    // Only delete if we created the issue
     if (createdIssueId) {
-      // Use the API directly to delete (there's no CLI delete command exposed)
-      // For now, just log - the issue can be cleaned up manually or via API
-      console.log(`Note: Test issue ${createdIssueId} was created for testing.`);
-      console.log('You may want to delete it manually or it will be auto-cleaned.');
+      const auth = await getAuth();
+      const client = new LinearClient(auth);
+      const issue = await getIssue(client, createdIssueId);
+      if (issue) {
+        await deleteIssue(client, issue.id);
+      }
     }
   });
 

@@ -34,7 +34,7 @@ async function getTestAuth(): Promise<ApiKeyAuth> {
   }
 
   const config = await readConfig();
-  if (config.auth?.type === 'api-key') {
+  if ('auth' in config && config.auth?.type === 'api-key') {
     return config.auth;
   }
 

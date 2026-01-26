@@ -97,22 +97,24 @@ export async function resolveTeam(
   return team.id;
 }
 
+const PRIORITY_MAP: Record<string, number> = {
+  none: 0,
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+};
+
 export function resolvePriority(priority: string): number {
-  const normalized = priority.toLowerCase();
-  switch (normalized) {
-    case 'none':
-      return 0;
-    case 'urgent':
-      return 1;
-    case 'high':
-      return 2;
-    case 'medium':
-      return 3;
-    case 'low':
-      return 4;
-    default:
-      throw new Error(
-        `Invalid priority '${priority}'. Valid values: urgent, high, medium, low, none`
-      );
+  const lower = priority.toLowerCase();
+  if (lower in PRIORITY_MAP) {
+    return PRIORITY_MAP[lower]!;
   }
+  const num = parseInt(priority, 10);
+  if (!isNaN(num) && num >= 0 && num <= 4) {
+    return num;
+  }
+  throw new Error(
+    `Invalid priority '${priority}'. Use: none, urgent, high, medium, low, or 0-4`
+  );
 }

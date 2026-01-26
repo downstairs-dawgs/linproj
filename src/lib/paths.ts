@@ -1,7 +1,8 @@
 import { homedir } from 'os';
 import { join } from 'path';
 
-function getConfigDir(): string {
+// Functions to compute paths dynamically (supports environment variable changes in tests)
+export function getConfigDir(): string {
   // XDG Base Directory Specification
   const xdgConfigHome = process.env.XDG_CONFIG_HOME;
   if (xdgConfigHome) {
@@ -18,5 +19,15 @@ function getConfigDir(): string {
   return join(homedir(), '.config', 'linproj');
 }
 
+export function getConfigFile(): string {
+  return join(getConfigDir(), 'config.json');
+}
+
+export function getWorkspacesDir(): string {
+  return join(getConfigDir(), 'workspaces');
+}
+
+// Legacy exports for backward compatibility (static values from initial load)
 export const CONFIG_DIR = getConfigDir();
-export const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+export const CONFIG_FILE = getConfigFile();
+export const WORKSPACES_DIR = getWorkspacesDir();
