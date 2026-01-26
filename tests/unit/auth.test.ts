@@ -67,14 +67,17 @@ const mockViewer = {
 
 // Helper to mock fetch for Linear API calls
 function mockFetch(response: unknown, status = 200) {
-  return mock(() =>
+  const mockFn = mock(() =>
     Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
       statusText: status === 200 ? 'OK' : 'Error',
       json: () => Promise.resolve(response),
     } as Response)
-  );
+  ) as unknown as typeof fetch;
+  // Add Bun's preconnect property to satisfy TypeScript
+  mockFn.preconnect = () => {};
+  return mockFn;
 }
 
 describe('auth logout command', () => {
