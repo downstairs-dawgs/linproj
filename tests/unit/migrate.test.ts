@@ -126,19 +126,21 @@ describe('config migrate command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Config is already v2 format. No migration needed.');
   });
 
-  it('fails with error when v1 config has no auth', async () => {
+  it('migrates v1 config without auth to empty v2 config', async () => {
     // Setup: Write an empty v1 config (no auth)
     await writeGlobalConfig({});
 
     const { createMigrateCommand } = await import('../../src/commands/config/migrate.ts');
     const command = createMigrateCommand();
+    await command.parseAsync(['node', 'test']);
 
-    // Should call process.exit(1)
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
+    // Verify it created v2 config without workspace
+    const globalConfig = await readGlobalConfig();
+    expect(getConfigVersion(globalConfig)).toBe(2);
+    expect((globalConfig as ConfigV2).currentWorkspace).toBeUndefined();
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error: No auth credentials found in v1 config.');
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Run `linproj auth login` first.');
-    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(consoleLogSpy).toHaveBeenCalledWith('Migrated to v2 config format.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Run `linproj auth login` to authenticate.');
   });
 
   it('migrates v1 api-key auth to workspace', async () => {

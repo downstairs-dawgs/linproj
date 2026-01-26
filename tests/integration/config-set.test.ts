@@ -115,7 +115,7 @@ describe('config set default-team', () => {
       }
     });
 
-    const { createSetCommand } = await import('../../src/commands/config/set.ts');
+    const { createSetCommand } = await import('../../src/commands/config/config.ts');
     const command = createSetCommand();
     await command.parseAsync(['node', 'test', 'default-team', 'ENG']);
 
@@ -148,7 +148,7 @@ describe('config set default-team', () => {
       }
     });
 
-    const { createSetCommand } = await import('../../src/commands/config/set.ts');
+    const { createSetCommand } = await import('../../src/commands/config/config.ts');
     const command = createSetCommand();
 
     await expect(command.parseAsync(['node', 'test', 'default-team', 'INVALID'])).rejects.toThrow(

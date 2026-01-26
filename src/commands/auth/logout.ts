@@ -6,8 +6,6 @@ import {
   listWorkspaces,
   deleteWorkspace,
   findWorkspaceByName,
-  requireWorkspaceAuth,
-  type ConfigV1,
   type ConfigV2,
 } from '../../lib/config.ts';
 
@@ -45,10 +43,14 @@ export function createLogoutCommand(): Command {
     .option('--all', 'Remove all workspaces')
     .option('-w, --workspace <name>', 'Remove a specific workspace by name')
     .action(async (options: LogoutOptions) => {
-      try {
-        requireWorkspaceAuth();
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
+      if (process.env.LINEAR_API_KEY) {
+        console.error('Error: LINEAR_API_KEY environment variable is set.');
+        console.error('Unset it to manage workspace-based authentication.');
+        process.exit(1);
+      }
+
+      if (options.all && options.workspace) {
+        console.error('Error: --all and --workspace are mutually exclusive.');
         process.exit(1);
       }
 
@@ -56,22 +58,17 @@ export function createLogoutCommand(): Command {
       const version = getConfigVersion(globalConfig);
 
       if (version === 1) {
-        const v1Config = globalConfig as ConfigV1;
-        if (!v1Config.auth) {
-          console.log('Not currently authenticated');
-          return;
-        }
-        await writeGlobalConfig({});
-        console.log('Logged out');
-        return;
+        console.error('Error: Config migration required.');
+        console.error('Run `linproj config migrate` first.');
+        process.exit(1);
       }
 
       const config = globalConfig as ConfigV2;
       const workspaces = await listWorkspaces();
 
       if (workspaces.length === 0) {
-        console.log('Not currently authenticated');
-        return;
+        console.error('Error: Not currently authenticated.');
+        process.exit(1);
       }
 
       if (options.all) {
@@ -99,14 +96,14 @@ export function createLogoutCommand(): Command {
       }
 
       if (!config.currentWorkspace) {
-        console.log('No current workspace set');
-        return;
+        console.error('Error: No current workspace set.');
+        process.exit(1);
       }
 
       const currentWorkspace = workspaces.find((w) => w.organizationId === config.currentWorkspace);
       if (!currentWorkspace) {
-        console.log('Current workspace not found');
-        return;
+        console.error('Error: Current workspace not found.');
+        process.exit(1);
       }
 
       await logoutFromWorkspace(config, currentWorkspace.organizationId, currentWorkspace.organizationName, workspaces);

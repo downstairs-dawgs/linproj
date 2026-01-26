@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import {
   writeGlobalConfig,
   writeWorkspace,
-  requireWorkspaceAuth,
   type ApiKeyAuth,
   type ConfigV2,
   type WorkspaceProfile,
@@ -71,10 +70,9 @@ async function promptApiKey(): Promise<string> {
 }
 
 async function loginWithApiKey(): Promise<void> {
-  try {
-    requireWorkspaceAuth();
-  } catch (err) {
-    console.error(`Error: ${(err as Error).message}`);
+  if (process.env.LINEAR_API_KEY) {
+    console.error('Error: LINEAR_API_KEY environment variable is set.');
+    console.error('Unset it to use workspace-based authentication.');
     process.exit(1);
   }
 

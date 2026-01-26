@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, chmod, readdir } from 'fs/promises';
+import { mkdir, readFile, writeFile, chmod, readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { getConfigDir, getConfigFile, getWorkspacesDir } from './paths.ts';
 
@@ -150,7 +150,6 @@ export async function writeWorkspace(workspace: WorkspaceProfile): Promise<void>
 
 export async function deleteWorkspace(organizationId: string): Promise<void> {
   const workspacePath = join(getWorkspacesDir(), `${organizationId}.json`);
-  const { unlink } = await import('fs/promises');
   try {
     await unlink(workspacePath);
   } catch (err) {
@@ -190,12 +189,7 @@ export async function getCurrentWorkspace(): Promise<WorkspaceProfile> {
 
   if (version === 1) {
     throw new Error(
-      'Config migration required.\n\n' +
-      'Your configuration uses an older format. Run:\n' +
-      '  linproj config migrate\n\n' +
-      'This will:\n' +
-      '  - Fetch your organization info from Linear\n' +
-      '  - Create a workspace profile for your current auth'
+      'Config migration required. Run `linproj config migrate`.'
     );
   }
 

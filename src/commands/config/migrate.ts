@@ -25,9 +25,12 @@ export function createMigrateCommand(): Command {
       const v1Config = globalConfig as ConfigV1;
 
       if (!v1Config.auth) {
-        console.error('Error: No auth credentials found in v1 config.');
-        console.error('Run `linproj auth login` first.');
-        process.exit(1);
+        // No auth - just create empty v2 config
+        const v2Config: ConfigV2 = { version: 2 };
+        await writeGlobalConfig(v2Config);
+        console.log('Migrated to v2 config format.');
+        console.log('Run `linproj auth login` to authenticate.');
+        return;
       }
 
       console.log('Fetching organization info...');

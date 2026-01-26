@@ -4,134 +4,77 @@
  * These tests verify the migration flow from v1 to v2 config format
  * using actual CLI invocation.
  *
- * Note: These tests require valid Linear authentication to run the migrate command.
+ * Note: Some tests require valid Linear authentication to run the migrate command.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { mkdtemp, rm, readdir, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-
-const CLI_PATH = join(import.meta.dir, '../../src/index.ts');
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-async function runCLI(
-  args: string[],
-  options: { env?: Record<string, string> } = {}
-): Promise<RunResult> {
-  const env = {
-    ...process.env,
-    ...options.env,
-  };
-
-  const proc = Bun.spawn(['bun', 'run', CLI_PATH, ...args], {
-    env,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-
-  const exitCode = await proc.exited;
-
-  return { exitCode, stdout, stderr };
-}
+import { E2ETestContext, runCLI } from './helpers.ts';
 
 describe('config migration E2E', () => {
-  let tempDir: string;
-  let configDir: string;
-  let originalLinearApiKey: string | undefined;
+  const ctx = new E2ETestContext();
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'linproj-e2e-migration-'));
-    configDir = join(tempDir, 'linproj');
-
-    // Save and unset LINEAR_API_KEY to test workspace-based auth
-    originalLinearApiKey = process.env.LINEAR_API_KEY;
+    await ctx.setup();
   });
 
   afterEach(async () => {
-    // Restore LINEAR_API_KEY
-    if (originalLinearApiKey !== undefined) {
-      process.env.LINEAR_API_KEY = originalLinearApiKey;
-    }
-
-    try {
-      await rm(tempDir, { recursive: true });
-    } catch {
-      // Ignore cleanup errors
-    }
+    await ctx.teardown();
   });
 
   it('shows migration error when running workspace command with v1 config', async () => {
-    // Create v1 config
-    const { mkdir, writeFile } = await import('node:fs/promises');
-    await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, 'config.json'),
-      JSON.stringify({ auth: { type: 'api-key', apiKey: 'test-key' } })
-    );
+    await ctx.setupV1Config('test-key');
 
-    // Run workspace current (requires getCurrentWorkspace which enforces v2)
     const result = await runCLI(['workspace', 'current'], {
-      env: {
-        XDG_CONFIG_HOME: tempDir,
-        // Unset LINEAR_API_KEY to use file-based config
-        LINEAR_API_KEY: '',
-      },
+      env: ctx.envWithoutApiKey(),
     });
 
-    // Should show migration error
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Config migration required');
     expect(result.stderr).toContain('linproj config migrate');
   });
 
-  it('migrates v1 config to v2 and creates workspace file', async () => {
-    // Skip if no LINEAR_API_KEY available (needed for API call during migration)
-    if (!originalLinearApiKey) {
-      console.log('Skipping test: LINEAR_API_KEY not available');
-      return;
-    }
+  it('migrates empty v1 config to v2 without auth', async () => {
+    await ctx.setupV1Config(); // No API key
 
-    // Create v1 config with real API key
-    const { mkdir, writeFile } = await import('node:fs/promises');
-    await mkdir(configDir, { recursive: true });
-    await writeFile(
-      join(configDir, 'config.json'),
-      JSON.stringify({ auth: { type: 'api-key', apiKey: originalLinearApiKey } })
-    );
-
-    // Run migrate command (unset LINEAR_API_KEY so it uses file config)
     const result = await runCLI(['config', 'migrate'], {
-      env: {
-        XDG_CONFIG_HOME: tempDir,
-        LINEAR_API_KEY: '',
-      },
+      env: ctx.envWithoutApiKey(),
     });
 
-    // Should succeed
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Migrated to v2 config format');
+    expect(result.stdout).toContain('linproj auth login');
+
+    // Verify v2 config was written
+    const configContent = await readFile(join(ctx.configDir, 'config.json'), 'utf-8');
+    const config = JSON.parse(configContent);
+    expect(config.version).toBe(2);
+    expect(config.currentWorkspace).toBeUndefined();
+  });
+
+  it('migrates v1 config to v2 and creates workspace file', async () => {
+    ctx.requireApiKey();
+
+    await ctx.setupV1Config();
+
+    const result = await runCLI(['config', 'migrate'], {
+      env: ctx.envWithoutApiKey(),
+    });
+
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Fetching organization info');
     expect(result.stdout).toContain('Created workspace:');
     expect(result.stdout).toContain('Migration complete');
 
     // Verify v2 config was written
-    const configContent = await readFile(join(configDir, 'config.json'), 'utf-8');
+    const configContent = await readFile(join(ctx.configDir, 'config.json'), 'utf-8');
     const config = JSON.parse(configContent);
     expect(config.version).toBe(2);
     expect(config.currentWorkspace).toBeDefined();
 
     // Verify workspace file was created
-    const workspacesDir = join(configDir, 'workspaces');
+    const workspacesDir = join(ctx.configDir, 'workspaces');
     const files = await readdir(workspacesDir);
     expect(files.length).toBeGreaterThan(0);
 
@@ -142,6 +85,6 @@ describe('config migration E2E', () => {
     expect(workspace.organizationName).toBeDefined();
     expect(workspace.urlKey).toBeDefined();
     expect(workspace.auth).toBeDefined();
-    expect(workspace.auth.apiKey).toBe(originalLinearApiKey);
+    expect(workspace.auth.apiKey).toBe(ctx.apiKey);
   });
 });

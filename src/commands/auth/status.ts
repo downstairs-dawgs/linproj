@@ -4,7 +4,6 @@ import {
   getConfigVersion,
   getCurrentWorkspace,
   isUsingEnvAuth,
-  type ConfigV1,
 } from '../../lib/config.ts';
 import { LinearClient, getViewer, LinearAPIError } from '../../lib/api.ts';
 
@@ -37,21 +36,9 @@ export function createStatusCommand(): Command {
       const version = getConfigVersion(globalConfig);
 
       if (version === 1) {
-        const v1Config = globalConfig as ConfigV1;
-        if (!v1Config.auth) {
-          console.log('Not authenticated');
-          console.log('Run `linproj auth login` to authenticate');
-          return;
-        }
-
-        const method = v1Config.auth.type === 'api-key' ? 'API key' : 'OAuth';
-        const ok = await showAuthStatus(new LinearClient(v1Config.auth), method);
-        if (ok) {
-          console.log('');
-          console.log('Note: Your config uses an older format.');
-          console.log('Run `linproj config migrate` to enable workspace features.');
-        }
-        return;
+        console.error('Error: Config migration required.');
+        console.error('Run `linproj config migrate` to update your configuration.');
+        process.exit(1);
       }
 
       try {
