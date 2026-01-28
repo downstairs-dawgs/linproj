@@ -444,6 +444,24 @@ export interface Project {
   name: string;
 }
 
+export type ProjectHealth = 'onTrack' | 'atRisk' | 'offTrack';
+
+export interface ProjectUpdate {
+  id: string;
+  body: string;
+  health: ProjectHealth;
+  url: string;
+  createdAt: string;
+  project: { id: string; name: string };
+  user: { id: string; name: string };
+}
+
+export interface CreateProjectUpdateInput {
+  projectId: string;
+  body: string;
+  health?: ProjectHealth;
+}
+
 export interface IssueUpdateInput {
   title?: string;
   description?: string;
@@ -668,4 +686,52 @@ export async function updateIssue(
   }
 
   return result.issueUpdate.issue;
+}
+
+interface CreateProjectUpdateResponse {
+  projectUpdateCreate: {
+    success: boolean;
+    projectUpdate: ProjectUpdate;
+  };
+}
+
+export async function createProjectUpdate(
+  client: LinearClient,
+  input: CreateProjectUpdateInput
+): Promise<ProjectUpdate> {
+  const mutation = `
+    mutation($input: ProjectUpdateCreateInput!) {
+      projectUpdateCreate(input: $input) {
+        success
+        projectUpdate {
+          id
+          body
+          health
+          url
+          createdAt
+          project {
+            id
+            name
+          }
+          user {
+            id
+            name
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<CreateProjectUpdateResponse>(mutation, {
+    input: {
+      projectId: input.projectId,
+      body: input.body,
+      health: input.health,
+    },
+  });
+
+  if (!result.projectUpdateCreate.success) {
+    throw new LinearAPIError('Failed to create project update');
+  }
+
+  return result.projectUpdateCreate.projectUpdate;
 }

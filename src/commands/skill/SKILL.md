@@ -77,6 +77,34 @@ EOF
 - `completed` - Done
 - `canceled` - Won't do
 
+## Projects
+
+### List projects
+```bash
+linproj projects list                  # List all projects
+linproj projects list --json           # JSON output
+```
+
+### Post project status updates
+```bash
+linproj projects update "My Project" --health on-track --body "Sprint going well"
+linproj projects update "My Project" --health at-risk --body "Blocked on API"
+```
+
+### Pipe markdown content for updates
+```bash
+cat <<EOF | linproj projects update "My Project" --health on-track
+## Week Summary
+- Completed feature X
+- Started work on Y
+EOF
+```
+
+## Project Health Values
+- `on-track` - Project is progressing as planned
+- `at-risk` - Project has potential blockers
+- `off-track` - Project is behind schedule
+
 ## Tips
 - Use `-a me` to filter/assign to current user
 - Use `--json` for scriptable output
