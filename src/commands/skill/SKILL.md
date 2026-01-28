@@ -82,3 +82,50 @@ EOF
 - Use `--json` for scriptable output
 - Use `--field url` to get just the issue URL
 - Check `linproj auth status` if commands fail
+
+# Project Management
+Use linproj CLI to manage Linear projects. This project has linproj installed locally.
+
+## Common Workflows
+
+### List projects
+```bash
+linproj projects list                  # List all projects
+linproj projects list --json           # JSON output
+```
+
+### Post project status update
+
+When the user wants to post a project update, ask them questions to gather:
+1. Which project to update
+1. What was accomplished this week (and whether goals were achieved / learnings)
+1. What the team wants to accomplish next week
+1. Health status (on-track, at-risk, off-track)
+
+Then format the update using this template:
+
+```bash
+cat <<EOF | linproj projects update "Project Name" --health on-track
+What did the team accomplish this week?
+* Completed user authentication flow
+    * Achieved - launched to production on Tuesday
+* Started API rate limiting implementation
+    * Partially achieved - 80% complete, blocked on Redis config
+
+What does the team want to accomplish next week?
+* Finish rate limiting and deploy to staging
+* Begin work on billing integration
+* Write documentation for auth flow
+EOF
+```
+
+Quick updates (without template):
+```bash
+linproj projects update "My Project" --health on-track --body "Sprint going well"
+linproj projects update "My Project" --health at-risk --body "Blocked on API"
+```
+
+### Project Health Values
+- `on-track` - Project is progressing as planned
+- `at-risk` - Project has potential blockers
+- `off-track` - Project is behind schedule

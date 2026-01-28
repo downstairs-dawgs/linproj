@@ -82,6 +82,30 @@ export async function resolveProject(
   return project.id;
 }
 
+// UUID v4 pattern
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function resolveProjectForUpdate(
+  client: LinearClient,
+  projectNameOrId: string
+): Promise<string> {
+  // If it looks like a UUID, pass through directly
+  if (UUID_REGEX.test(projectNameOrId)) {
+    return projectNameOrId;
+  }
+
+  // Otherwise resolve by name
+  const projects = await getProjects(client);
+  const project = projects.find(
+    (p) => p.name.toLowerCase() === projectNameOrId.toLowerCase()
+  );
+  if (!project) {
+    const available = projects.map((p) => p.name).join(', ');
+    throw new Error(`Project '${projectNameOrId}' not found. Available: ${available}`);
+  }
+  return project.id;
+}
+
 export async function resolveTeam(
   client: LinearClient,
   teamKey: string
