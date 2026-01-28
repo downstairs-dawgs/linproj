@@ -17,6 +17,7 @@ A prioritized list of features for the linproj CLI.
 - `workspace list`, `workspace switch`, `workspace current`
 - `config get`, `config set`, `config unset`, `config migrate`
 - Default team configuration per workspace
+- `projects list`, `projects update` - List projects and post status updates
 
 ---
 
@@ -77,7 +78,8 @@ View and add comments on issues.
 
 Manage Linear projects and cycles.
 
-- [ ] `linproj projects list`
+- [x] `linproj projects list`
+- [x] `linproj projects update <project>` - Post status updates with health status
 - [ ] `linproj projects get <name>`
 - [ ] `linproj cycles list`
 - [ ] `linproj cycles current`
