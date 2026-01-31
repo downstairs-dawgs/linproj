@@ -446,6 +446,66 @@ export interface Project {
 
 export type ProjectHealth = 'onTrack' | 'atRisk' | 'offTrack';
 
+// Comment types
+export interface Comment {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  editedAt?: string;
+  url: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  botActor?: {
+    id: string;
+    name: string;
+  };
+  parentId?: string;
+  reactionData?: Record<string, unknown>;
+  resolvingUser?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CommentNode extends Comment {
+  children: CommentNode[];
+}
+
+export interface IssueCommentsResponse {
+  issue: {
+    id: string;
+    identifier: string;
+    title: string;
+    url: string;
+    comments: {
+      nodes: Array<Comment & { parent?: { id: string } }>;
+    };
+  } | null;
+}
+
+export interface CommentCreateInput {
+  issueId: string;
+  body: string;
+  parentId?: string;
+}
+
+export interface CreateCommentResponse {
+  commentCreate: {
+    success: boolean;
+    comment: Comment & { parent?: { id: string } };
+  };
+}
+
+export interface DeleteCommentResponse {
+  commentDelete: {
+    success: boolean;
+  };
+}
+
 export interface ProjectUpdate {
   id: string;
   body: string;
@@ -734,4 +794,185 @@ export async function createProjectUpdate(
   }
 
   return result.projectUpdateCreate.projectUpdate;
+}
+
+// Comment operations
+const COMMENT_FIELDS = `
+  id
+  body
+  createdAt
+  updatedAt
+  editedAt
+  url
+  user {
+    id
+    name
+    email
+  }
+  botActor {
+    id
+    name
+  }
+  parent {
+    id
+  }
+  reactionData
+  resolvingUser {
+    id
+    name
+  }
+`;
+
+export async function getComments(
+  client: LinearClient,
+  issueId: string,
+  first = 100
+): Promise<{ issue: Issue; comments: Comment[] } | null> {
+  const query = `
+    query($issueId: String!, $first: Int!) {
+      issue(id: $issueId) {
+        ${ISSUE_FIELDS}
+        comments(first: $first) {
+          nodes {
+            ${COMMENT_FIELDS}
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const result = await client.query<IssueCommentsResponse>(query, {
+      issueId,
+      first,
+    });
+
+    if (!result.issue) {
+      return null;
+    }
+
+    // Transform comments to include parentId
+    const comments: Comment[] = result.issue.comments.nodes.map((c) => ({
+      id: c.id,
+      body: c.body,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      editedAt: c.editedAt,
+      url: c.url,
+      user: c.user,
+      botActor: c.botActor,
+      parentId: c.parent?.id,
+      reactionData: c.reactionData,
+      resolvingUser: c.resolvingUser,
+    }));
+
+    // Return issue without comments field for cleaner structure
+    const { comments: _, ...issueWithoutComments } = result.issue as unknown as Issue & { comments: unknown };
+
+    return {
+      issue: issueWithoutComments as Issue,
+      comments,
+    };
+  } catch (err) {
+    if (err instanceof LinearAPIError && err.message.includes('Entity not found')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export function buildCommentTree(comments: Comment[]): CommentNode[] {
+  const map = new Map<string, CommentNode>();
+  const roots: CommentNode[] = [];
+
+  // First pass: create nodes
+  for (const comment of comments) {
+    map.set(comment.id, { ...comment, children: [] });
+  }
+
+  // Second pass: build tree
+  for (const comment of comments) {
+    const node = map.get(comment.id)!;
+    if (comment.parentId && map.has(comment.parentId)) {
+      map.get(comment.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Sort by createdAt
+  const sortByDate = (a: CommentNode, b: CommentNode) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+
+  const sortTree = (nodes: CommentNode[]) => {
+    nodes.sort(sortByDate);
+    for (const node of nodes) {
+      sortTree(node.children);
+    }
+  };
+
+  sortTree(roots);
+  return roots;
+}
+
+export async function createComment(
+  client: LinearClient,
+  input: CommentCreateInput
+): Promise<Comment> {
+  const mutation = `
+    mutation($input: CommentCreateInput!) {
+      commentCreate(input: $input) {
+        success
+        comment {
+          ${COMMENT_FIELDS}
+        }
+      }
+    }
+  `;
+
+  const result = await client.query<CreateCommentResponse>(mutation, {
+    input: {
+      issueId: input.issueId,
+      body: input.body,
+      parentId: input.parentId,
+    },
+  });
+
+  if (!result.commentCreate.success) {
+    throw new LinearAPIError('Failed to create comment');
+  }
+
+  const c = result.commentCreate.comment;
+  return {
+    id: c.id,
+    body: c.body,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    editedAt: c.editedAt,
+    url: c.url,
+    user: c.user,
+    botActor: c.botActor,
+    parentId: c.parent?.id,
+    reactionData: c.reactionData,
+    resolvingUser: c.resolvingUser,
+  };
+}
+
+export async function deleteComment(
+  client: LinearClient,
+  commentId: string
+): Promise<boolean> {
+  const mutation = `
+    mutation($id: String!) {
+      commentDelete(id: $id) {
+        success
+      }
+    }
+  `;
+
+  const result = await client.query<DeleteCommentResponse>(mutation, {
+    id: commentId,
+  });
+
+  return result.commentDelete.success;
 }
