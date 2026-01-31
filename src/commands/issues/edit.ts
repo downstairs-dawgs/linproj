@@ -76,7 +76,7 @@ function formatPriorityDisplay(priority: number): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-async function defaultHasStdinData(): Promise<boolean> {
+export async function defaultHasStdinData(): Promise<boolean> {
   // TTY means interactive terminal, definitely no piped data
   if (process.stdin.isTTY) return false;
 
@@ -99,7 +99,7 @@ async function defaultHasStdinData(): Promise<boolean> {
   });
 }
 
-async function defaultReadStdin(): Promise<string> {
+export async function defaultReadStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(chunk);

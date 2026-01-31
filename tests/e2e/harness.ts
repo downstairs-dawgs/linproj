@@ -26,12 +26,30 @@ export interface RunResult {
 
 export async function runCLI(
   args: string[],
-  options: { env?: Record<string, string> } = {}
+  options: { env?: Record<string, string>; stdin?: string } = {}
 ): Promise<RunResult> {
   const env = {
     ...process.env,
     ...options.env,
   };
+
+  // If stdin is provided, use shell echo pipe
+  if (options.stdin !== undefined) {
+    const argsStr = args.map(a => `"${a.replace(/"/g, '\\"')}"`).join(' ');
+    const proc = Bun.spawn(['bash', '-c', `echo "${options.stdin.replace(/"/g, '\\"')}" | bun run "${CLI_PATH}" ${argsStr}`], {
+      env,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+
+    const exitCode = await proc.exited;
+    return { exitCode, stdout, stderr };
+  }
 
   const proc = Bun.spawn(['bun', 'run', CLI_PATH, ...args], {
     env,
