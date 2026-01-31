@@ -5,7 +5,16 @@
 import { join } from 'node:path';
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { LinearClient, getTeams, getIssue, deleteIssue } from '../../src/lib/api.ts';
+import {
+  LinearClient,
+  getTeams,
+  getIssue,
+  deleteIssue,
+  createComment,
+  deleteComment,
+  createIssue,
+  type Comment,
+} from '../../src/lib/api.ts';
 
 export const CLI_PATH = join(import.meta.dir, '../../src/index.ts');
 
@@ -48,6 +57,7 @@ export class E2ETestContext {
   public configDir!: string;
   private originalLinearApiKey: string | undefined;
   private createdIssueIds: string[] = [];
+  private createdCommentIds: string[] = [];
   private client: LinearClient | null = null;
 
   async setup(): Promise<void> {
@@ -57,6 +67,18 @@ export class E2ETestContext {
   }
 
   async teardown(): Promise<void> {
+    // Clean up created comments first (before deleting issues)
+    if (this.client && this.createdCommentIds.length > 0) {
+      for (const commentId of this.createdCommentIds) {
+        try {
+          await deleteComment(this.client, commentId);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      this.createdCommentIds = [];
+    }
+
     // Clean up created issues
     if (this.client && this.createdIssueIds.length > 0) {
       for (const identifier of this.createdIssueIds) {
@@ -69,6 +91,7 @@ export class E2ETestContext {
           // Ignore cleanup errors
         }
       }
+      this.createdIssueIds = [];
     }
 
     // Clean up temp directory
@@ -104,6 +127,37 @@ export class E2ETestContext {
 
   trackCreatedIssue(identifier: string): void {
     this.createdIssueIds.push(identifier);
+  }
+
+  trackCreatedComment(commentId: string): void {
+    this.createdCommentIds.push(commentId);
+  }
+
+  /**
+   * Create a test issue and track it for cleanup.
+   */
+  async createTestIssue(teamId: string, title?: string): Promise<{ id: string; identifier: string }> {
+    const client = await this.getLinearClient();
+    const issue = await createIssue(client, {
+      teamId,
+      title: title || `[TEST] E2E Test Issue ${Date.now()}`,
+    });
+    this.trackCreatedIssue(issue.identifier);
+    return { id: issue.id, identifier: issue.identifier };
+  }
+
+  /**
+   * Create a test comment and track it for cleanup.
+   */
+  async createTestComment(issueId: string, body: string, parentId?: string): Promise<Comment> {
+    const client = await this.getLinearClient();
+    const comment = await createComment(client, {
+      issueId,
+      body,
+      parentId,
+    });
+    this.trackCreatedComment(comment.id);
+    return comment;
   }
 
   envWithoutApiKey(): Record<string, string> {
