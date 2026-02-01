@@ -429,7 +429,7 @@ function renderStyleJ(comments: Comment[]): void {
     // Check if this ENTIRE THREAD is resolved - collapse it all with preview
     if (comment.resolved) {
       const replyCount = comment.children.length;
-      const preview = comment.body.split('\n')[0].slice(0, 40);
+      const preview = (comment.body.split('\n')[0] ?? '').slice(0, 40);
       const ellipsis = comment.body.length > 40 || comment.body.includes('\n') ? '...' : '';
       const replyText = replyCount > 0 ? `, ${replyCount} repl${replyCount === 1 ? 'y' : 'ies'}` : '';
       console.log(`${colors.green}✓${RESET} ${DIM}${comment.author}: "${preview}${ellipsis}" (resolved${replyText})${RESET}`);
@@ -476,7 +476,7 @@ function renderStyleK(comments: Comment[]): void {
 
     // Check if this ENTIRE THREAD is resolved - show in collapsed box
     if (comment.resolved) {
-      const firstLine = comment.body.split('\n')[0].slice(0, 45);
+      const firstLine = (comment.body.split('\n')[0] ?? '').slice(0, 45);
       const hasMore = comment.body.length > 45 || comment.body.includes('\n');
       const replyCount = comment.children.length;
       const replyText = replyCount > 0 ? ` + ${replyCount} repl${replyCount === 1 ? 'y' : 'ies'}` : '';
@@ -533,7 +533,7 @@ function renderStyleX(comments: Comment[]): void {
     if (comment.resolved) {
       const replyCount = comment.children.length;
       const replyText = replyCount > 0 ? ` + ${replyCount} repl${replyCount === 1 ? 'y' : 'ies'}` : '';
-      const preview = comment.body.split('\n')[0].slice(0, 45);
+      const preview = (comment.body.split('\n')[0] ?? '').slice(0, 45);
       const ellipsis = comment.body.length > 45 || comment.body.includes('\n') ? '...' : '';
 
       console.log(`${colors.green}✓${RESET} ${DIM}${comment.author} · ${comment.time}${replyText}${RESET}`);
