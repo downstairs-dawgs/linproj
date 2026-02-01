@@ -18,6 +18,25 @@ import {
 
 export const CLI_PATH = join(import.meta.dir, '../../src/index.ts');
 
+/**
+ * Find a comment by ID in a tree of comments (handles nested children).
+ * Returns the comment if found, undefined otherwise.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function findCommentInTree(
+  comments: any[],
+  commentId: string
+): any | undefined {
+  for (const c of comments) {
+    if (c.id === commentId) return c;
+    if (c.children) {
+      const found = findCommentInTree(c.children, commentId);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 export interface RunResult {
   exitCode: number;
   stdout: string;

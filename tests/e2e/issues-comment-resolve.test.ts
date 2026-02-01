@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { E2ETestContext, runCLI } from './harness.ts';
+import { E2ETestContext, runCLI, findCommentInTree } from './harness.ts';
 
 describe('issues comment resolve E2E', () => {
   const ctx = new E2ETestContext();
@@ -52,21 +52,7 @@ describe('issues comment resolve E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    const findComment = (
-      comments: { id: string; resolvingUser?: { id: string }; children?: { id: string; resolvingUser?: { id: string } }[] }[]
-    ): { resolvingUser?: { id: string } } | undefined => {
-      for (const c of comments) {
-        if (c.id === comment.id) return c;
-        if (c.children) {
-          const found = findComment(c.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-
-    const resolvedComment = findComment(output.comments);
+    const resolvedComment = findCommentInTree(output.comments, comment.id);
     expect(resolvedComment).toBeDefined();
     expect(resolvedComment!.resolvingUser).toBeDefined();
   });
@@ -203,21 +189,7 @@ describe('issues comment unresolve E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    const findComment = (
-      comments: { id: string; resolvingUser?: { id: string } | null; children?: { id: string; resolvingUser?: { id: string } | null }[] }[]
-    ): { resolvingUser?: { id: string } | null } | undefined => {
-      for (const c of comments) {
-        if (c.id === comment.id) return c;
-        if (c.children) {
-          const found = findComment(c.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-
-    const unresolvedComment = findComment(output.comments);
+    const unresolvedComment = findCommentInTree(output.comments, comment.id);
     expect(unresolvedComment).toBeDefined();
     expect(unresolvedComment!.resolvingUser).toBeNull();
   });

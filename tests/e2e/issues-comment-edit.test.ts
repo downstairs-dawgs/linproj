@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { E2ETestContext, runCLI } from './harness.ts';
+import { E2ETestContext, runCLI, findCommentInTree } from './harness.ts';
 
 describe('issues comment edit E2E', () => {
   const ctx = new E2ETestContext();
@@ -54,20 +54,7 @@ describe('issues comment edit E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    // Find the comment - it may be nested as a child or at root level
-    const findComment = (comments: { id: string; body: string; children?: { id: string; body: string }[] }[]): { body: string } | undefined => {
-      for (const c of comments) {
-        if (c.id === comment.id) return c;
-        if (c.children) {
-          const found = findComment(c.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-
-    const updatedComment = findComment(output.comments);
+    const updatedComment = findCommentInTree(output.comments, comment.id);
     expect(updatedComment).toBeDefined();
     expect(updatedComment!.body).toBe(newBody);
   });
@@ -92,19 +79,7 @@ describe('issues comment edit E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    const findComment = (comments: { id: string; body: string; children?: { id: string; body: string }[] }[]): { body: string } | undefined => {
-      for (const c of comments) {
-        if (c.id === comment.id) return c;
-        if (c.children) {
-          const found = findComment(c.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-
-    const updatedComment = findComment(output.comments);
+    const updatedComment = findCommentInTree(output.comments, comment.id);
     expect(updatedComment).toBeDefined();
     expect(updatedComment!.body).toBe(newBody);
   });
@@ -222,16 +197,7 @@ describe('issues comment delete E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    const findComment = (comments: { id: string; children?: { id: string }[] }[]): boolean => {
-      for (const c of comments) {
-        if (c.id === comment.id) return true;
-        if (c.children && findComment(c.children)) return true;
-      }
-      return false;
-    };
-
-    expect(findComment(output.comments)).toBe(false);
+    expect(findCommentInTree(output.comments, comment.id)).toBeUndefined();
   });
 
   it('--json outputs delete result as JSON', async () => {
@@ -293,15 +259,6 @@ describe('issues comment delete E2E', () => {
       { env: { LINEAR_API_KEY: ctx.apiKey! } }
     );
     const output = JSON.parse(listResult.stdout);
-
-    const findComment = (comments: { id: string; children?: { id: string }[] }[]): boolean => {
-      for (const c of comments) {
-        if (c.id === comment.id) return true;
-        if (c.children && findComment(c.children)) return true;
-      }
-      return false;
-    };
-
-    expect(findComment(output.comments)).toBe(true);
+    expect(findCommentInTree(output.comments, comment.id)).toBeDefined();
   });
 });

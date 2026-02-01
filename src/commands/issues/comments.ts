@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getAuthContext } from '../../lib/config.ts';
+import { getAuthContextOrExit } from '../../lib/config.ts';
 import {
   LinearClient,
   getComments,
@@ -13,6 +13,7 @@ import {
   defaultOpenEditor,
   defaultHasStdinData,
   defaultReadStdin,
+  stripHtmlComments,
 } from './edit.ts';
 
 function formatRelativeTime(isoDate: string): string {
@@ -99,15 +100,6 @@ function generateEditorTemplate(identifier: string, title: string): string {
 `;
 }
 
-function stripHtmlComments(content: string): string {
-  // Remove lines that start with <!--
-  return content
-    .split('\n')
-    .filter(line => !line.trimStart().startsWith('<!--'))
-    .join('\n')
-    .trim();
-}
-
 async function openCommentEditor(
   identifier: string,
   title: string
@@ -137,14 +129,7 @@ function createAddSubcommand(): Command {
     .option('--quiet', 'Suppress all output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, body: string | undefined, options: CommentsAddOptions) => {
-      let ctx;
-      try {
-        ctx = await getAuthContext(options.workspace);
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
-        process.exit(1);
-      }
-
+      const ctx = await getAuthContextOrExit(options.workspace);
       const client = new LinearClient(ctx.auth);
 
       // Fetch the issue to get its ID
@@ -254,14 +239,7 @@ function createListSubcommand(): Command {
 }
 
 async function executeList(identifier: string, options: CommentsListOptions): Promise<void> {
-  let ctx;
-  try {
-    ctx = await getAuthContext(options.workspace);
-  } catch (err) {
-    console.error(`Error: ${(err as Error).message}`);
-    process.exit(1);
-  }
-
+  const ctx = await getAuthContextOrExit(options.workspace);
   const client = new LinearClient(ctx.auth);
   const result = await getComments(client, identifier);
 

@@ -107,6 +107,18 @@ export async function defaultReadStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
+/**
+ * Remove HTML comment lines from content.
+ * Used for editor templates where instructions are in HTML comments.
+ */
+export function stripHtmlComments(content: string): string {
+  return content
+    .split('\n')
+    .filter(line => !line.trimStart().startsWith('<!--'))
+    .join('\n')
+    .trim();
+}
+
 async function findEditor(name: string): Promise<string | null> {
   try {
     const proc = Bun.spawn(['which', name], {

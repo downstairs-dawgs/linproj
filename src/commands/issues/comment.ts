@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getAuthContext } from '../../lib/config.ts';
+import { getAuthContextOrExit } from '../../lib/config.ts';
 import {
   LinearClient,
   getComment,
@@ -13,6 +13,7 @@ import {
   defaultOpenEditor,
   defaultHasStdinData,
   defaultReadStdin,
+  stripHtmlComments,
 } from './edit.ts';
 import * as readline from 'node:readline';
 
@@ -41,14 +42,6 @@ function generateEditTemplate(commentId: string, currentBody: string): string {
 <!-- Save and close to update. Delete all content to cancel. -->
 
 ${currentBody}`;
-}
-
-function stripHtmlComments(content: string): string {
-  return content
-    .split('\n')
-    .filter(line => !line.trimStart().startsWith('<!--'))
-    .join('\n')
-    .trim();
 }
 
 async function openEditEditor(
@@ -98,14 +91,7 @@ function createEditSubcommand(): Command {
     .option('--quiet', 'Suppress output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (commentId: string, body: string | undefined, options: CommentEditOptions) => {
-      let ctx;
-      try {
-        ctx = await getAuthContext(options.workspace);
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
-        process.exit(1);
-      }
-
+      const ctx = await getAuthContextOrExit(options.workspace);
       const client = new LinearClient(ctx.auth);
 
       // Fetch the comment
@@ -193,14 +179,7 @@ function createDeleteSubcommand(): Command {
     .option('--quiet', 'Suppress output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (commentId: string, options: CommentDeleteOptions) => {
-      let ctx;
-      try {
-        ctx = await getAuthContext(options.workspace);
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
-        process.exit(1);
-      }
-
+      const ctx = await getAuthContextOrExit(options.workspace);
       const client = new LinearClient(ctx.auth);
 
       // Fetch the comment
@@ -274,14 +253,7 @@ function createResolveSubcommand(): Command {
     .option('--quiet', 'Suppress output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (commentId: string, options: CommentResolveOptions) => {
-      let ctx;
-      try {
-        ctx = await getAuthContext(options.workspace);
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
-        process.exit(1);
-      }
-
+      const ctx = await getAuthContextOrExit(options.workspace);
       const client = new LinearClient(ctx.auth);
 
       // Fetch the comment to verify it exists
@@ -330,14 +302,7 @@ function createUnresolveSubcommand(): Command {
     .option('--quiet', 'Suppress output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (commentId: string, options: CommentResolveOptions) => {
-      let ctx;
-      try {
-        ctx = await getAuthContext(options.workspace);
-      } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
-        process.exit(1);
-      }
-
+      const ctx = await getAuthContextOrExit(options.workspace);
       const client = new LinearClient(ctx.auth);
 
       // Fetch the comment to verify it exists

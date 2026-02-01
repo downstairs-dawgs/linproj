@@ -809,6 +809,49 @@ export async function createProjectUpdate(
 }
 
 // Comment operations
+
+/** Raw comment shape returned from GraphQL API */
+interface RawComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  editedAt?: string;
+  url: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  botActor?: {
+    id: string;
+    name: string;
+  };
+  parent?: { id: string };
+  reactionData?: Record<string, unknown>;
+  resolvingUser?: {
+    id: string;
+    name: string;
+  };
+}
+
+/** Transform raw API comment to our Comment model */
+function parseComment(c: RawComment): Comment {
+  return {
+    id: c.id,
+    body: c.body,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    editedAt: c.editedAt,
+    url: c.url,
+    user: c.user,
+    botActor: c.botActor,
+    parentId: c.parent?.id,
+    reactionData: c.reactionData,
+    resolvingUser: c.resolvingUser,
+  };
+}
+
 const COMMENT_FIELDS = `
   id
   body
@@ -863,20 +906,7 @@ export async function getComments(
       return null;
     }
 
-    // Transform comments to include parentId
-    const comments: Comment[] = result.issue.comments.nodes.map((c) => ({
-      id: c.id,
-      body: c.body,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      editedAt: c.editedAt,
-      url: c.url,
-      user: c.user,
-      botActor: c.botActor,
-      parentId: c.parent?.id,
-      reactionData: c.reactionData,
-      resolvingUser: c.resolvingUser,
-    }));
+    const comments = result.issue.comments.nodes.map(parseComment);
 
     // Extract issue without comments field
     const issueWithComments = result.issue as Issue & { comments: unknown };
@@ -952,20 +982,7 @@ export async function createComment(
     throw new LinearAPIError('Failed to create comment');
   }
 
-  const c = result.commentCreate.comment;
-  return {
-    id: c.id,
-    body: c.body,
-    createdAt: c.createdAt,
-    updatedAt: c.updatedAt,
-    editedAt: c.editedAt,
-    url: c.url,
-    user: c.user,
-    botActor: c.botActor,
-    parentId: c.parent?.id,
-    reactionData: c.reactionData,
-    resolvingUser: c.resolvingUser,
-  };
+  return parseComment(result.commentCreate.comment);
 }
 
 export async function deleteComment(
@@ -1014,21 +1031,10 @@ export async function getComment(
       return null;
     }
 
-    const c = result.comment;
     return {
-      id: c.id,
-      body: c.body,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      editedAt: c.editedAt,
-      url: c.url,
-      user: c.user,
-      botActor: c.botActor,
-      parentId: c.parent?.id,
-      reactionData: c.reactionData,
-      resolvingUser: c.resolvingUser,
-      issueId: c.issue.id,
-      issueIdentifier: c.issue.identifier,
+      ...parseComment(result.comment),
+      issueId: result.comment.issue.id,
+      issueIdentifier: result.comment.issue.identifier,
     };
   } catch (err) {
     if (err instanceof LinearAPIError && err.message.includes('Entity not found')) {
@@ -1063,20 +1069,7 @@ export async function updateComment(
     throw new LinearAPIError('Failed to update comment');
   }
 
-  const c = result.commentUpdate.comment;
-  return {
-    id: c.id,
-    body: c.body,
-    createdAt: c.createdAt,
-    updatedAt: c.updatedAt,
-    editedAt: c.editedAt,
-    url: c.url,
-    user: c.user,
-    botActor: c.botActor,
-    parentId: c.parent?.id,
-    reactionData: c.reactionData,
-    resolvingUser: c.resolvingUser,
-  };
+  return parseComment(result.commentUpdate.comment);
 }
 
 export async function resolveComment(

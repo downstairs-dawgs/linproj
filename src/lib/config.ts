@@ -313,3 +313,16 @@ export async function getAuthContext(workspaceName?: string): Promise<AuthContex
 
   return { auth };
 }
+
+/**
+ * Get auth context or exit with error message.
+ * Convenience wrapper for CLI commands.
+ */
+export async function getAuthContextOrExit(workspaceName?: string): Promise<AuthContext> {
+  try {
+    return await getAuthContext(workspaceName);
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
+    process.exit(1);
+  }
+}
