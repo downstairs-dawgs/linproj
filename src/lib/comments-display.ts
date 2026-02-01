@@ -1,4 +1,5 @@
 import type { CommentNode } from './api.ts';
+import { renderMarkdown } from './terminal-markdown.ts';
 
 export function formatRelativeTime(isoDate: string): string {
   const date = new Date(isoDate);
@@ -31,8 +32,17 @@ export function countComments(nodes: CommentNode[]): number {
   return count;
 }
 
-export function printCommentTree(nodes: CommentNode[], depth = 0): void {
+export interface PrintCommentOptions {
+  raw?: boolean;
+}
+
+export function printCommentTree(
+  nodes: CommentNode[],
+  depth = 0,
+  options: PrintCommentOptions = {}
+): void {
   const indent = '  '.repeat(depth);
+  const indentWidth = depth * 2;
 
   for (const node of nodes) {
     const author = getAuthorDisplay(node);
@@ -44,16 +54,27 @@ export function printCommentTree(nodes: CommentNode[], depth = 0): void {
     // Header line
     console.log(`${indent}--- ${author} · ${time}${replyTag}${editedTag}${resolvedTag} ---`);
 
-    // Body - print each line with indentation
-    const lines = node.body.split('\n');
-    for (const line of lines) {
-      console.log(`${indent}${line}`);
+    // Body - render markdown or print raw
+    if (options.raw) {
+      const lines = node.body.split('\n');
+      for (const line of lines) {
+        console.log(`${indent}${line}`);
+      }
+    } else {
+      // Calculate available width accounting for comment indentation
+      const availableWidth = (process.stdout.columns ?? 80) - indentWidth;
+      const rendered = renderMarkdown(node.body, { width: availableWidth });
+
+      // Split and print with base indentation
+      for (const line of rendered.trimEnd().split('\n')) {
+        console.log(`${indent}${line}`);
+      }
     }
 
     // Print children (replies)
     if (node.children.length > 0) {
       console.log();
-      printCommentTree(node.children, depth + 1);
+      printCommentTree(node.children, depth + 1, options);
     }
 
     // Blank line after each top-level comment

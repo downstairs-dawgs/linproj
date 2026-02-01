@@ -8,7 +8,11 @@ import {
   type Issue,
   type CommentNode,
 } from '../../lib/api.ts';
-import { countComments, printCommentTree } from '../../lib/comments-display.ts';
+import {
+  countComments,
+  printCommentTree,
+  type PrintCommentOptions,
+} from '../../lib/comments-display.ts';
 import { renderMarkdown } from '../../lib/terminal-markdown.ts';
 
 function formatPriority(priority: number): string {
@@ -93,7 +97,7 @@ function printIssueDetails(
       console.log(`Comments (${totalCount}):`);
       console.log();
 
-      printCommentTree(displayedTree);
+      printCommentTree(displayedTree, 0, { raw: options?.raw });
 
       if (remainingTopLevel > 0) {
         const remainingTotal = totalCount - displayedCount;
