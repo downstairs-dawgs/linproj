@@ -202,13 +202,13 @@ describe('renderMarkdown', () => {
   describe('blockquotes', () => {
     it('renders blockquotes with vertical bar prefix', () => {
       const result = renderMarkdown('> This is a quote', { colors: false });
-      expect(result).toContain('│ This is a quote');
+      expect(result).toContain('▌ This is a quote');
     });
 
     it('handles multiline blockquotes', () => {
       const result = renderMarkdown('> Line 1\n> Line 2', { colors: false });
-      expect(result).toContain('│ Line 1');
-      expect(result).toContain('│ Line 2');
+      expect(result).toContain('▌ Line 1');
+      expect(result).toContain('▌ Line 2');
     });
   });
 

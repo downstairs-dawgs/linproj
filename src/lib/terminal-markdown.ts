@@ -86,7 +86,8 @@ export function renderMarkdown(
 
     blockquote: (children) => {
       const lines = children.trimEnd().split('\n');
-      const quoted = lines.map((l) => style(DIM, '│ ') + l).join('\n');
+      const bar = style(cyan, '▌ ');
+      const quoted = lines.map((l) => bar + style(DIM, l)).join('\n');
       return quoted + '\n';
     },
 
