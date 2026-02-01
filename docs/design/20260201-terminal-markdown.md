@@ -801,31 +801,6 @@ describe('terminal markdown in issue display', () => {
 
 ---
 
-## Bun Version Requirement
-
-This feature requires **Bun >= 1.3.8** for `Bun.markdown`.
-
-**Note:** Since linproj ships as a compiled Bun binary (`bun build --compile`), the Bun runtime is embedded. End users don't need Bun installed—`Bun.markdown` is always available in the distributed binary.
-
-The version enforcement below is for **developers** working on the codebase:
-
-### Enforcing the Version (Development)
-
-Already implemented in `package.json`:
-
-```json
-{
-  "packageManager": "bun@1.3.8",
-  "scripts": {
-    "preinstall": "bun scripts/check-bun-version.ts"
-  }
-}
-```
-
-CI uses `oven-sh/setup-bun@v2` which reads `packageManager` automatically.
-
----
-
 ## CLI Options
 
 ### `--raw` Flag
@@ -863,12 +838,6 @@ Implementation: Pass `{ colors: false, hyperlinks: false }` and skip the rendere
 - [ ] Handle indentation for nested comments
 - [ ] Add `--raw` flag to comments command
 - [ ] Add E2E test for comment rendering
-
-### Phase 4: Version Enforcement ✓
-- [x] Add `packageManager` field to `package.json`
-- [x] Create `scripts/check-bun-version.ts`
-- [x] Add preinstall hook
-- [ ] Update README with version requirement
 
 ---
 

@@ -136,6 +136,8 @@ Installs an [Agent Skills](https://agentskills.io) spec for Claude Code, Codex, 
 
 ## Development
 
+Requires **Bun >= 1.3.8**.
+
 ```bash
 bun install
 bun run src/index.ts --help
