@@ -13,7 +13,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: bun run tsc --noEmit
-      - run: bun test
+      # Run unit and integration tests (fast, no API rate limit concerns)
+      - name: Run unit and integration tests
+        run: bun test tests/unit tests/integration
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      # Run E2E tests with reduced concurrency to avoid API rate limits
+      # and retries for flaky network conditions
+      - name: Run E2E tests
+        run: bun test tests/e2e --preload ./tests/e2e/preload.ts --max-concurrency 5 --retry 2
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 
