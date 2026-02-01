@@ -117,7 +117,7 @@ describe('issues comment resolve E2E', () => {
     expect(result.stderr).toContain('Comment not found');
   });
 
-  it('shows [resolved] in human-readable list output', async () => {
+  it('shows collapsed resolved thread in human-readable list output', async () => {
     const body = `Human readable resolve test ${Date.now()}`;
     const comment = await ctx.createTestComment(testIssue.id, body);
 
@@ -134,7 +134,36 @@ describe('issues comment resolve E2E', () => {
     );
 
     expect(listResult.exitCode).toBe(0);
-    expect(listResult.stdout).toContain('[resolved]');
+    // Resolved threads show collapsed with checkmark and preview quote
+    expect(listResult.stdout).toContain('✓');
+    expect(listResult.stdout).toContain('"Human readable resolve test');
+  });
+
+  it('shows collapsed resolved thread with reply count', async () => {
+    const body = `Resolved with replies test ${Date.now()}`;
+    const comment = await ctx.createTestComment(testIssue.id, body);
+
+    // Add replies to the comment
+    await ctx.createTestComment(testIssue.id, 'First reply', comment.id);
+    await ctx.createTestComment(testIssue.id, 'Second reply', comment.id);
+
+    // Resolve the thread
+    await runCLI(
+      ['issues', 'comment', 'resolve', comment.id],
+      { env: { LINEAR_API_KEY: ctx.apiKey! } }
+    );
+
+    // List without --json to check human-readable output
+    const listResult = await runCLI(
+      ['issues', 'comments', testIssue.identifier],
+      { env: { LINEAR_API_KEY: ctx.apiKey! } }
+    );
+
+    expect(listResult.exitCode).toBe(0);
+    // Collapsed view should show reply count
+    expect(listResult.stdout).toContain('✓');
+    expect(listResult.stdout).toContain('+ 2 replies');
+    expect(listResult.stdout).toContain('"Resolved with replies test');
   });
 });
 

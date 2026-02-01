@@ -8,7 +8,12 @@ import {
   type Issue,
   type CommentNode,
 } from '../../lib/api.ts';
-import { countComments, printCommentTree } from '../../lib/comments-display.ts';
+import {
+  countComments,
+  printCommentTree,
+  type PrintCommentOptions,
+} from '../../lib/comments-display.ts';
+import { renderMarkdown } from '../../lib/terminal-markdown.ts';
 
 function formatPriority(priority: number): string {
   switch (priority) {
@@ -33,7 +38,11 @@ function formatDate(isoDate: string): string {
 
 const DEFAULT_COMMENTS_LIMIT = 3;
 
-function printIssueDetails(issue: Issue, commentTree?: CommentNode[]): void {
+function printIssueDetails(
+  issue: Issue,
+  commentTree?: CommentNode[],
+  options?: { raw?: boolean }
+): void {
   console.log(`${issue.identifier}: ${issue.title}`);
   console.log('━'.repeat(50));
   console.log();
@@ -62,7 +71,11 @@ function printIssueDetails(issue: Issue, commentTree?: CommentNode[]): void {
   if (issue.description) {
     console.log();
     console.log('Description:');
-    console.log(issue.description);
+    if (options?.raw) {
+      console.log(issue.description);
+    } else {
+      console.log(renderMarkdown(issue.description));
+    }
   }
 
   console.log();
@@ -84,7 +97,7 @@ function printIssueDetails(issue: Issue, commentTree?: CommentNode[]): void {
       console.log(`Comments (${totalCount}):`);
       console.log();
 
-      printCommentTree(displayedTree);
+      printCommentTree(displayedTree, 0, { raw: options?.raw });
 
       if (remainingTopLevel > 0) {
         const remainingTotal = totalCount - displayedCount;
@@ -137,6 +150,7 @@ interface GetOptions {
   field?: string;
   workspace?: string;
   comments?: boolean; // defaults to true, set to false by --no-comments
+  raw?: boolean;
 }
 
 export function createGetCommand(): Command {
@@ -146,6 +160,7 @@ export function createGetCommand(): Command {
     .option('--json', 'Output as JSON')
     .option('--field <field>', 'Output a single field (id, url, state, etc.)')
     .option('--no-comments', 'Exclude comments from output')
+    .option('--raw', 'Show raw markdown without rendering')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: GetOptions) => {
       let ctx;
@@ -195,6 +210,6 @@ export function createGetCommand(): Command {
         return;
       }
 
-      printIssueDetails(issue, commentTree);
+      printIssueDetails(issue, commentTree, { raw: options.raw });
     });
 }

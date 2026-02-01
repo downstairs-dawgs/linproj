@@ -20,6 +20,7 @@ interface CommentsListOptions {
   json?: boolean;
   limit?: string;
   workspace?: string;
+  raw?: boolean;
 }
 
 interface CommentsAddOptions {
@@ -169,6 +170,7 @@ function createListSubcommand(): Command {
     .argument('<identifier>', 'Issue identifier (e.g., ENG-123)')
     .option('--json', 'Output as JSON')
     .option('--limit <n>', 'Limit to N most recent top-level comments (includes all replies)')
+    .option('--raw', 'Show raw markdown without rendering')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: CommentsListOptions) => {
       await executeList(identifier, options);
@@ -231,7 +233,7 @@ async function executeList(identifier: string, options: CommentsListOptions): Pr
   console.log(`${totalCount} comment${totalCount === 1 ? '' : 's'}:`);
   console.log();
 
-  printCommentTree(tree);
+  printCommentTree(tree, 0, { raw: options.raw });
 }
 
 export function createCommentsCommand(): Command {
