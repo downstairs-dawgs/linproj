@@ -72,14 +72,13 @@ async function confirmDelete(): Promise<boolean> {
   });
 }
 
-async function validateOwnership(
+async function isCommentOwner(
   client: LinearClient,
   comment: Comment
-): Promise<{ isOwner: boolean; viewerId: string }> {
+): Promise<boolean> {
   // TODO: cache viewer in workspace profile
   const viewer = await getViewer(client);
-  const isOwner = comment.user?.id === viewer.id;
-  return { isOwner, viewerId: viewer.id };
+  return comment.user?.id === viewer.id;
 }
 
 function createEditSubcommand(): Command {
@@ -102,8 +101,7 @@ function createEditSubcommand(): Command {
       }
 
       // Validate ownership
-      const { isOwner } = await validateOwnership(client, comment);
-      if (!isOwner) {
+      if (!await isCommentOwner(client, comment)) {
         console.error('Error: You can only edit your own comments');
         process.exit(1);
       }
@@ -190,8 +188,7 @@ function createDeleteSubcommand(): Command {
       }
 
       // Validate ownership
-      const { isOwner } = await validateOwnership(client, comment);
-      if (!isOwner) {
+      if (!await isCommentOwner(client, comment)) {
         console.error('Error: You can only delete your own comments');
         process.exit(1);
       }

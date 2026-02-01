@@ -453,6 +453,7 @@ export interface Comment {
   createdAt: string;
   updatedAt: string;
   editedAt?: string;
+  resolvedAt?: string;
   url: string;
   user?: {
     id: string;
@@ -817,6 +818,7 @@ interface RawComment {
   createdAt: string;
   updatedAt: string;
   editedAt?: string;
+  resolvedAt?: string;
   url: string;
   user?: {
     id: string;
@@ -843,6 +845,7 @@ function parseComment(c: RawComment): Comment {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     editedAt: c.editedAt,
+    resolvedAt: c.resolvedAt,
     url: c.url,
     user: c.user,
     botActor: c.botActor,
@@ -858,6 +861,7 @@ const COMMENT_FIELDS = `
   createdAt
   updatedAt
   editedAt
+  resolvedAt
   url
   user {
     id
@@ -1005,7 +1009,7 @@ export async function deleteComment(
 }
 
 interface GetCommentResponse {
-  comment: (Comment & { parent?: { id: string }; issue: { id: string; identifier: string } }) | null;
+  comment: (RawComment & { issue: { id: string; identifier: string } }) | null;
 }
 
 export async function getComment(
