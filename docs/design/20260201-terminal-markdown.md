@@ -71,16 +71,10 @@ interface Options {
     www?: boolean;
     email?: boolean;
   };
-  // Less common options
-  wikiLinks?: boolean;           // [[page]] syntax (default: false)
-  underline?: boolean;           // __underline__ (default: false)
-  latexMath?: boolean;           // $math$ (default: false)
-  headings?: boolean | {
-    ids?: boolean;               // Generate heading IDs
-    autolink?: boolean;          // Link headings to themselves
-  };
 }
 ```
+
+We use defaults for all options—no custom configuration needed.
 
 ---
 
@@ -151,7 +145,6 @@ Linear's editor supports standard markdown plus some extensions. Here's what we 
 | Horizontal rule | `___` | `─` line |
 | @mentions | `@user` | Rendered as profile links by Linear |
 | Issue refs | `ENG-123` | Auto-linked by Linear |
-| Collapsible | `>>>` | Render as blockquote (can't collapse) |
 | Mermaid | ` ```mermaid ` | Show as code (see Future Enhancements) |
 | Embeds | YouTube/Figma links | Show as links |
 | Emojis | `:emoji:` | Pass through (terminal renders natively) |
@@ -166,48 +159,7 @@ Linear's editor supports standard markdown plus some extensions. Here's what we 
 
 ```
 src/lib/
-├── terminal-markdown.ts    # Main renderer
-└── ansi.ts                 # ANSI color constants and helpers
-```
-
-### ANSI Utilities Module
-
-```typescript
-// src/lib/ansi.ts
-
-// Text styles (no Bun.color() equivalent for these)
-export const RESET = '\x1b[0m';
-export const BOLD = '\x1b[1m';
-export const DIM = '\x1b[2m';
-export const ITALIC = '\x1b[3m';
-export const UNDERLINE = '\x1b[4m';
-export const STRIKETHROUGH = '\x1b[9m';
-
-// Colors using Bun.color() for consistency with Bun APIs
-export const RED = Bun.color('red', 'ansi');
-export const GREEN = Bun.color('green', 'ansi');
-export const YELLOW = Bun.color('yellow', 'ansi');
-export const BLUE = Bun.color('blue', 'ansi');
-export const MAGENTA = Bun.color('magenta', 'ansi');
-export const CYAN = Bun.color('cyan', 'ansi');
-export const WHITE = Bun.color('white', 'ansi');
-export const GRAY = Bun.color('gray', 'ansi');
-
-// OSC 8 hyperlinks (clickable links in supported terminals)
-export const linkStart = (url: string) => `\x1b]8;;${url}\x1b\\`;
-export const linkEnd = '\x1b]8;;\x1b\\';
-
-// Check if colors are supported
-export function supportsColor(): boolean {
-  if (process.env.NO_COLOR) return false;
-  if (process.env.FORCE_COLOR) return true;
-  return process.stdout.isTTY ?? false;
-}
-
-// Get terminal width
-export function getTerminalWidth(): number {
-  return process.stdout.columns ?? 80;
-}
+└── terminal-markdown.ts    # Main renderer (includes ANSI helpers)
 ```
 
 ### Renderer Implementation
@@ -216,7 +168,30 @@ The main challenge is that `RenderCallbacks` is stateless—each callback is ind
 
 ```typescript
 // src/lib/terminal-markdown.ts
-import * as ansi from './ansi.ts';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANSI escape codes (Bun.color() handles colors, but not text styles)
+// ═══════════════════════════════════════════════════════════════════════════════
+const RESET = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const ITALIC = '\x1b[3m';
+const UNDERLINE = '\x1b[4m';
+const STRIKETHROUGH = '\x1b[9m';
+
+// OSC 8 hyperlinks (clickable in supported terminals)
+const linkStart = (url: string) => `\x1b]8;;${url}\x1b\\`;
+const linkEnd = '\x1b]8;;\x1b\\';
+
+function supportsColor(): boolean {
+  if (process.env.NO_COLOR) return false;      // NO_COLOR spec: presence disables
+  if (process.env.FORCE_COLOR) return true;    // FORCE_COLOR: presence enables
+  return process.stdout.isTTY ?? false;
+}
+
+function getTerminalWidth(): number {
+  return process.stdout.columns ?? 80;
+}
 
 export interface RenderOptions {
   width?: number;           // Terminal width (default: auto-detect or 80)
@@ -225,18 +200,20 @@ export interface RenderOptions {
 }
 
 export function renderMarkdown(input: string, options: RenderOptions = {}): string {
-  const width = options.width ?? ansi.getTerminalWidth();
-  const useColors = options.colors ?? ansi.supportsColor();
+  if (!input) return '';  // Empty input returns empty string
+
+  const width = options.width ?? getTerminalWidth();
+  const useColors = options.colors ?? supportsColor();
   const useHyperlinks = options.hyperlinks ?? (process.stdout.isTTY ?? false);
 
   // No-op style functions when colors disabled
   const style = useColors
-    ? (code: string, text: string) => `${code}${text}${ansi.RESET}`
+    ? (code: string, text: string) => `${code}${text}${RESET}`
     : (_code: string, text: string) => text;
 
   // Hyperlink wrapper (OSC 8)
   const hyperlink = useHyperlinks
-    ? (url: string, text: string) => `${ansi.linkStart(url)}${text}${ansi.linkEnd}`
+    ? (url: string, text: string) => `${linkStart(url)}${text}${linkEnd}`
     : (_url: string, text: string) => text;
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -248,51 +225,56 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
   const callbacks: RenderCallbacks = {
     heading: (children, { level }) => {
       const prefix = '#'.repeat(level) + ' ';
-      return `\n${style(ansi.BOLD, prefix + children)}\n`;
+      return `\n${style(BOLD, prefix + children)}\n`;
     },
 
     paragraph: (children) => {
       const wrapped = Bun.wrapAnsi(children, width);
-      return wrapped + '\n';
+      return wrapped + '\n\n';  // Blank line after paragraphs (conventional spacing)
     },
 
-    strong: (children) => style(ansi.BOLD, children),
+    strong: (children) => style(BOLD, children),
 
-    emphasis: (children) => style(ansi.ITALIC, children),
+    emphasis: (children) => style(ITALIC, children),
 
-    codespan: (children) => style(ansi.CYAN + ansi.DIM, `\`${children}\``),
+    codespan: (children) => style(Bun.color('cyan', 'ansi') + DIM, `\`${children}\``),
 
     code: (children, meta) => {
       const lang = meta?.language;
       // Special handling for mermaid - just show as code, can't render diagrams
-      const header = lang ? `${style(ansi.DIM, `[${lang}]`)}\n` : '';
+      const header = lang ? `${style(DIM, `[${lang}]`)}\n` : '';
       const lines = children.split('\n');
       // Don't wrap code - preserve original formatting
-      const indented = lines.map(l => `  ${style(ansi.DIM, l)}`).join('\n');
+      const indented = lines.map(l => `  ${style(DIM, l)}`).join('\n');
       return `\n${header}${indented}\n`;
     },
 
     blockquote: (children) => {
       const lines = children.trimEnd().split('\n');
-      const quoted = lines.map(l => style(ansi.DIM, `│ `) + l).join('\n');
+      const quoted = lines.map(l => style(DIM, `│ `) + l).join('\n');
       return quoted + '\n';
     },
 
     link: (children, { href }) => {
-      const styledText = style(ansi.UNDERLINE + ansi.CYAN, children);
+      const styledText = style(UNDERLINE + Bun.color('cyan', 'ansi'), children);
       const clickable = hyperlink(href, styledText);
 
-      // If link text matches URL, just show the URL
-      if (children === href) {
+      // Check if link text is redundant with the URL
+      // Handles: [https://example.com](https://example.com) - exact match
+      // Handles: [example.com](https://example.com) - text is URL without protocol
+      const normalizeUrl = (url: string) =>
+        url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+      if (children === href || normalizeUrl(children) === normalizeUrl(href)) {
         return clickable;
       }
       // Show link text, make it clickable, and show URL in parens
-      return `${clickable} ${style(ansi.DIM, `(${href})`)}`;
+      return `${clickable} ${style(DIM, `(${href})`)}`;
     },
 
     image: (_children, { src, title }) => {
       const label = title || 'image';
-      return style(ansi.DIM, `[${label}: ${src}]`);
+      return style(DIM, `[${label}: ${src}]`);
     },
 
     list: (children, { ordered, start }) => {
@@ -310,7 +292,7 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
 
       let bullet: string;
       if (meta?.checked === true) {
-        bullet = style(ansi.GREEN, '✓');
+        bullet = style(Bun.color('green', 'ansi'), '✓');
       } else if (meta?.checked === false) {
         bullet = '○';
       } else if (currentList?.ordered) {
@@ -329,9 +311,9 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
       return first + (rest ? '\n' + rest : '') + '\n';
     },
 
-    strikethrough: (children) => style(ansi.STRIKETHROUGH, children),
+    strikethrough: (children) => style(STRIKETHROUGH, children),
 
-    hr: () => `\n${style(ansi.DIM, '─'.repeat(Math.min(40, width)))}\n`,
+    hr: () => `\n${style(DIM, '─'.repeat(Math.min(40, width)))}\n`,
 
     // ═══════════════════════════════════════════════════════════════════════
     // Tables - two-pass approach for dynamic column widths
@@ -340,6 +322,10 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
     // Challenge: Callbacks receive already-rendered children, so we can't
     // measure column widths before rendering. We use a simple heuristic:
     // render cells with a separator, then post-process in the table callback.
+    //
+    // WARNING: This approach is fragile if cell content contains a literal │
+    // character. Test with real Linear data to see if this is a problem in
+    // practice. If so, consider using a less common delimiter or escaping.
 
     table: (children) => {
       // Children is pre-rendered rows with │ separators
@@ -373,7 +359,7 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
       // Add separator after header
       if (formatted.length > 1) {
         const separator = colWidths.map(w => '─'.repeat(w)).join('──');
-        formatted.splice(1, 0, style(ansi.DIM, separator));
+        formatted.splice(1, 0, style(DIM, separator));
       }
 
       return '\n' + formatted.join('\n') + '\n';
@@ -381,24 +367,25 @@ export function renderMarkdown(input: string, options: RenderOptions = {}): stri
     thead: (children) => children,
     tbody: (children) => children,
     tr: (children) => children.trim() + '\n',
-    th: (children) => style(ansi.BOLD, children) + '│',
+    th: (children) => style(BOLD, children) + '│',
     td: (children) => children + '│',
 
     // Pass through HTML as-is (Linear sometimes includes it)
-    html: (children) => style(ansi.DIM, children),
+    html: (children) => style(DIM, children),
   };
 
   return Bun.markdown.render(input, callbacks);
 }
-
-// Convenience function for rendering with consistent trailing newline
-export function renderMarkdownBlock(input: string, options: RenderOptions = {}): string {
-  const rendered = renderMarkdown(input, options);
-  return rendered.endsWith('\n') ? rendered : rendered + '\n';
-}
 ```
 
 ### Handling Nested Lists
+
+> **Implementation Note:** The callback execution order needs verification. If callbacks
+> fire depth-first (children before parents), the `listStack` approach below won't work
+> as written—`listItem` callbacks would execute before their parent `list` callback
+> pushes to the stack. The implementor should test callback order with a simple example
+> and adjust the approach if needed (e.g., pre-parse the AST, or use a different state
+> mechanism).
 
 The `listStack` closure tracks list context:
 
@@ -444,12 +431,12 @@ if (issue.description) {
 }
 
 // After:
-import { renderMarkdownBlock } from '../../lib/terminal-markdown.ts';
+import { renderMarkdown } from '../../lib/terminal-markdown.ts';
 
 if (issue.description) {
   console.log();
   console.log('Description:');
-  console.log(renderMarkdownBlock(issue.description));
+  console.log(renderMarkdown(issue.description));
 }
 ```
 
@@ -606,21 +593,7 @@ let listStack: Array<{ ordered: boolean; counter: number; depth: number }> = [];
 
 Linear supports ` ```mermaid ` code blocks for diagrams. We can't render these graphically in the terminal—they display as regular code blocks with `[mermaid]` label.
 
-### 8. Collapsible Sections
-
-Linear's `>>>` collapsible sections can't actually collapse in a terminal. Render them as blockquotes with a visual indicator:
-
-```typescript
-// Detect >>> at start of blockquote and render with ▶ prefix
-blockquote: (children) => {
-  const isCollapsible = children.startsWith('>>>');
-  const content = isCollapsible ? children.slice(3).trim() : children;
-  const prefix = isCollapsible ? '▶ ' : '│ ';
-  // ...
-}
-```
-
-### 9. OSC 8 Hyperlink Support
+### 8. OSC 8 Hyperlink Support
 
 Not all terminals support OSC 8 clickable links. Major terminals that do:
 - iTerm2, Hyper, Windows Terminal, GNOME Terminal (3.26+), Konsole, WezTerm
@@ -664,6 +637,24 @@ describe('renderMarkdown', () => {
       expect(result).toContain('\x1b[4m');     // Underline
       expect(result).toContain('\x1b]8;;');    // OSC 8 start
       expect(result).toContain('example.com');
+    });
+
+    test('omits redundant URL when link text matches href', () => {
+      const result = renderMarkdown('[https://example.com](https://example.com)', { colors: false });
+      expect(result).toContain('https://example.com');
+      expect(result).not.toContain('(https://example.com)');  // No duplicate in parens
+    });
+
+    test('omits redundant URL when link text is href without protocol', () => {
+      const result = renderMarkdown('[example.com](https://example.com)', { colors: false });
+      expect(result).toContain('example.com');
+      expect(result).not.toContain('(https://example.com)');  // No duplicate in parens
+    });
+
+    test('shows URL in parens when link text differs from href', () => {
+      const result = renderMarkdown('[click here](https://example.com)', { colors: false });
+      expect(result).toContain('click here');
+      expect(result).toContain('(https://example.com)');  // URL shown separately
     });
 
     test('renders strikethrough', () => {
@@ -819,7 +810,6 @@ Implementation: Pass `{ colors: false, hyperlinks: false }` and skip the rendere
 ## Implementation Order
 
 ### Phase 1: Core Renderer
-- [ ] Create `src/lib/ansi.ts` with ANSI constants and helpers
 - [ ] Create `src/lib/terminal-markdown.ts` with `renderMarkdown()`
 - [ ] Add unit tests for basic markdown elements
 - [ ] Add unit tests for edge cases (no color, narrow width)
