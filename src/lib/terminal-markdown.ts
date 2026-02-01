@@ -81,7 +81,7 @@ export function renderMarkdown(
         i < arr.length - 1 || l.length > 0
       );
       const indented = lines.map((l) => `  ${style(DIM, l)}`).join('\n');
-      return `${header}${indented}\n`;
+      return `${header}${indented}\n\n`;
     },
 
     blockquote: (children) => {
