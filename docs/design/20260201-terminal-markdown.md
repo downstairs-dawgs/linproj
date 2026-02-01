@@ -19,17 +19,12 @@ Bun v1.3.8 introduced `Bun.markdown`, a high-performance CommonMark-compliant pa
 
 ## Bun.markdown API
 
-### Three Rendering Functions
+### Bun.markdown.render()
+
+We use `Bun.markdown.render()` with custom callbacks to transform markdown into ANSI-styled terminal output:
 
 ```typescript
-// Render to HTML string
-Bun.markdown.html(input: string, options?: Options): string;
-
-// Render with custom callbacks (what we'll use)
 Bun.markdown.render(input: string, callbacks?: RenderCallbacks, options?: Options): string;
-
-// Render to React JSX (not relevant for CLI)
-Bun.markdown.react(input: string, components?: ComponentOverrides, options?: ReactOptions): JSX.Element;
 ```
 
 ### RenderCallbacks Interface
@@ -154,14 +149,14 @@ Linear's editor supports standard markdown plus some extensions. Here's what we 
 | Tables | `\|--` | Dynamic columns |
 | Links | `[text](url)` | Underlined + OSC 8 |
 | Horizontal rule | `___` | `─` line |
-| @mentions | `@user` | Rendered as links by Linear |
+| @mentions | `@user` | Rendered as profile links by Linear |
 | Issue refs | `ENG-123` | Auto-linked by Linear |
 | Collapsible | `>>>` | Render as blockquote (can't collapse) |
-| Mermaid | ` ```mermaid ` | Show as code (can't render diagrams) |
+| Mermaid | ` ```mermaid ` | Show as code (see Future Enhancements) |
 | Embeds | YouTube/Figma links | Show as links |
 | Emojis | `:emoji:` | Pass through (terminal renders natively) |
 
-**Key insight:** Linear's API returns markdown where @mentions and issue references are already converted to markdown links. We don't need to detect `ENG-123` patterns ourselves—they arrive as `[ENG-123](https://linear.app/...)`.
+**Key insight:** Linear's API returns markdown where @mentions and issue references are already converted to markdown links. Mentions use profile URLs in the format `[Display Name](https://linear.app/{workspace}/profiles/{username})`, and issue references arrive as `[ENG-123](https://linear.app/{workspace}/issue/ENG-123/...)`. We don't need to detect these patterns ourselves.
 
 ---
 
@@ -175,10 +170,12 @@ src/lib/
 └── ansi.ts                 # ANSI color constants and helpers
 ```
 
-### ANSI Constants
+### ANSI Utilities Module
 
 ```typescript
 // src/lib/ansi.ts
+
+// Text styles (no Bun.color() equivalent for these)
 export const RESET = '\x1b[0m';
 export const BOLD = '\x1b[1m';
 export const DIM = '\x1b[2m';
@@ -186,15 +183,15 @@ export const ITALIC = '\x1b[3m';
 export const UNDERLINE = '\x1b[4m';
 export const STRIKETHROUGH = '\x1b[9m';
 
-// Colors (using standard 16 colors for compatibility)
-export const RED = '\x1b[31m';
-export const GREEN = '\x1b[32m';
-export const YELLOW = '\x1b[33m';
-export const BLUE = '\x1b[34m';
-export const MAGENTA = '\x1b[35m';
-export const CYAN = '\x1b[36m';
-export const WHITE = '\x1b[37m';
-export const GRAY = '\x1b[90m';
+// Colors using Bun.color() for consistency with Bun APIs
+export const RED = Bun.color('red', 'ansi');
+export const GREEN = Bun.color('green', 'ansi');
+export const YELLOW = Bun.color('yellow', 'ansi');
+export const BLUE = Bun.color('blue', 'ansi');
+export const MAGENTA = Bun.color('magenta', 'ansi');
+export const CYAN = Bun.color('cyan', 'ansi');
+export const WHITE = Bun.color('white', 'ansi');
+export const GRAY = Bun.color('gray', 'ansi');
 
 // OSC 8 hyperlinks (clickable links in supported terminals)
 export const linkStart = (url: string) => `\x1b]8;;${url}\x1b\\`;
@@ -478,7 +475,7 @@ for (const line of rendered.trimEnd().split('\n')) {
 }
 ```
 
-Note: The `indent` option was removed from `RenderOptions`—indentation is handled by the caller (comment display) since it knows the nesting context. The renderer just needs to know the available width for line wrapping.
+**Design rationale:** The renderer's `RenderOptions` interface does not include an `indent` parameter. Indentation is intentionally handled by the caller (comment display code) rather than the renderer, since the caller knows the nesting context. The renderer only needs to know the available width for line wrapping.
 
 ---
 
@@ -842,6 +839,17 @@ Implementation: Pass `{ colors: false, hyperlinks: false }` and skip the rendere
 ---
 
 ## Future Enhancements
+
+### Mermaid Diagram Rendering
+
+Currently, mermaid code blocks display as plain code with a `[mermaid]` label. Two packages could enable ASCII diagram rendering:
+
+- **[beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid)**: Renders mermaid diagrams to ASCII art
+- **[mermaidtui](https://github.com/tariqshams/mermaidtui)**: Terminal UI for mermaid diagrams
+
+Initial implementation will show mermaid as code blocks, but these packages are worth exploring for a future iteration to provide actual diagram visualization in the terminal.
+
+### Other Enhancements
 
 - **Syntax highlighting**: Use `Bun.color()` for basic keyword highlighting in code blocks (language-aware)
 - **Theme support**: Light/dark mode detection based on terminal background (`COLORFGBG` env var)
