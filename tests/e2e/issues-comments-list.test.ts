@@ -66,6 +66,20 @@ describe('issues comments list E2E', () => {
     expect(result.stdout).toContain('second top-level comment');
     // Should show comment count
     expect(result.stdout).toMatch(/\d+ comments?:/);
+    // Should use accent bar styling with diamond bullets
+    expect(result.stdout).toContain('◆'); // Top-level comment marker
+    expect(result.stdout).toContain('│'); // Accent bar
+  });
+
+  it('shows replies with tree connectors', async () => {
+    const result = await runCLI(['issues', 'comments', testIssue.identifier], {
+      env: { LINEAR_API_KEY: ctx.apiKey! },
+    });
+
+    expect(result.exitCode).toBe(0);
+    // Replies should have small diamond and tree connectors
+    expect(result.stdout).toContain('◇'); // Reply marker
+    expect(result.stdout).toMatch(/[├└]─◇/); // Tree connector with reply marker
   });
 
   it('outputs JSON with --json flag', async () => {

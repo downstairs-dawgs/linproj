@@ -826,11 +826,11 @@ Implementation: Pass `{ colors: false, hyperlinks: false }` and skip the rendere
 - [x] Add `--raw` flag to comments command
 - [x] Add E2E test for comment rendering
 
-### Phase 4: Comment Display Redesign
-- [ ] Implement new comment tree styling with accent bar design
-- [ ] Add collapsed view for resolved threads
-- [ ] Update `printCommentTree` to use new styling
-- [ ] Add E2E tests for collapsed resolved threads
+### Phase 4: Comment Display Redesign ✓
+- [x] Implement new comment tree styling with accent bar design
+- [x] Add collapsed view for resolved threads
+- [x] Update `printCommentTree` to use new styling
+- [x] Add E2E tests for collapsed resolved threads
 
 **Prototype:** See `scripts/comment-style-prototype.ts` for interactive style exploration.
 
