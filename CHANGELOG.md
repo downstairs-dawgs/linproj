@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2026-02-01
 
+![Terminal markdown rendering demo](docs/assets/v0.6.0-demo.gif)
+
 ### Added
 
 #### Comment Support

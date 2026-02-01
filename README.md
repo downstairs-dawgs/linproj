@@ -2,8 +2,6 @@
 
 CLI for Linear.
 
-![Terminal markdown rendering demo](docs/assets/v0.6.0-demo.gif)
-
 ## Install
 
 ```bash
