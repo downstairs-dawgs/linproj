@@ -25,6 +25,30 @@ export class LinearAPIError extends Error {
   }
 }
 
+// Simple rate limiter - ensures minimum delay between API calls
+class RateLimiter {
+  private lastCallTime = 0;
+  private minDelayMs: number;
+
+  constructor(minDelayMs = 100) {
+    this.minDelayMs = minDelayMs;
+  }
+
+  async wait(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - this.lastCallTime;
+    if (elapsed < this.minDelayMs) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.minDelayMs - elapsed)
+      );
+    }
+    this.lastCallTime = Date.now();
+  }
+}
+
+// Global rate limiter shared across all clients
+const rateLimiter = new RateLimiter(100);
+
 export class LinearClient {
   private authHeader: string;
 
@@ -36,6 +60,8 @@ export class LinearClient {
     query: string,
     variables?: Record<string, unknown>
   ): Promise<T> {
+    await rateLimiter.wait();
+
     const response = await fetch(LINEAR_API_URL, {
       method: 'POST',
       headers: {
