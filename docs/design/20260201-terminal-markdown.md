@@ -809,22 +809,81 @@ Implementation: Pass `{ colors: false, hyperlinks: false }` and skip the rendere
 
 ## Implementation Order
 
-### Phase 1: Core Renderer
-- [ ] Create `src/lib/terminal-markdown.ts` with `renderMarkdown()`
-- [ ] Add unit tests for basic markdown elements
-- [ ] Add unit tests for edge cases (no color, narrow width)
-- [ ] Add unit tests for ordered lists, nested lists, tables
+### Phase 1: Core Renderer ✓
+- [x] Create `src/lib/terminal-markdown.ts` with `renderMarkdown()`
+- [x] Add unit tests for basic markdown elements
+- [x] Add unit tests for edge cases (no color, narrow width)
+- [x] Add unit tests for ordered lists, nested lists, tables
 
-### Phase 2: Issue Integration
-- [ ] Update `src/commands/issues/get.ts` to use renderer for descriptions
-- [ ] Add `--raw` flag to bypass rendering
-- [ ] Add E2E test for issue description rendering
+### Phase 2: Issue Integration ✓
+- [x] Update `src/commands/issues/get.ts` to use renderer for descriptions
+- [x] Add `--raw` flag to bypass rendering
+- [x] Add E2E test for issue description rendering
 
-### Phase 3: Comments Integration
-- [ ] Update `src/lib/comments-display.ts` to use renderer
-- [ ] Handle indentation for nested comments
-- [ ] Add `--raw` flag to comments command
-- [ ] Add E2E test for comment rendering
+### Phase 3: Comments Integration ✓
+- [x] Update `src/lib/comments-display.ts` to use renderer
+- [x] Handle indentation for nested comments
+- [x] Add `--raw` flag to comments command
+- [x] Add E2E test for comment rendering
+
+### Phase 4: Comment Display Redesign
+- [ ] Implement new comment tree styling with accent bar design
+- [ ] Add collapsed view for resolved threads
+- [ ] Update `printCommentTree` to use new styling
+- [ ] Add E2E tests for collapsed resolved threads
+
+**Prototype:** See `scripts/comment-style-prototype.ts` for interactive style exploration.
+
+#### Design Decisions
+
+**Linear Threading Model:**
+Linear only supports 2 levels of comment threading:
+1. Top-level comments on an issue
+2. Replies to those comments (replies cannot have children)
+
+This simplifies our display logic—no need to handle arbitrary nesting depth.
+
+**Thread-Level Resolution:**
+When a comment thread is resolved in Linear, the entire thread is marked resolved (the top-level comment + all its replies). Resolution is not per-comment—it's per-thread.
+
+**Chosen Style: Accent Bar with Collapsed Resolved**
+
+Unresolved threads use the "accent bar" style:
+```
+◆ Author Name
+│ 2 hours ago
+│ Comment body with markdown rendering...
+│ Multiple lines supported.
+│
+├─◇ Reply Author
+│   1 hour ago
+│   Reply body here.
+│
+└─◇ Another Reply
+    30 min ago
+    Final reply in thread.
+```
+
+Resolved threads collapse to a compact preview:
+```
+✓ Author Name · 3 hours ago + 2 replies
+  "First 45 characters of the comment body..."
+```
+
+**Visual Elements:**
+- `◆` (cyan) - Top-level comment bullet
+- `◇` (gray) - Reply bullet
+- `│` (cyan) - Vertical connector bar
+- `├─` / `└─` - Tree branch connectors
+- `✓` (green) - Resolved indicator
+- Dim text for timestamps and collapsed previews
+
+**Color Scheme:**
+- Cyan (`\x1b[36m`) - Primary accent for comment structure
+- Gray (`\x1b[90m`) - Reply bullets, secondary elements
+- Green (`\x1b[32m`) - Resolved checkmark
+- Bold (`\x1b[1m`) - Author names
+- Dim (`\x1b[2m`) - Timestamps, collapsed preview text
 
 ---
 
