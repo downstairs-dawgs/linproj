@@ -144,7 +144,7 @@ export function renderMarkdown(
 
     strikethrough: (children) => style(STRIKETHROUGH, children),
 
-    hr: () => `\n${style(DIM, '─'.repeat(Math.min(40, width)))}\n`,
+    hr: () => `\n${style(DIM, '─'.repeat(Math.min(40, width)))}\n\n`,
 
     // Tables - render with dynamic column widths
     table: (children) => {
