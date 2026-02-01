@@ -866,13 +866,11 @@ export async function getComments(
       resolvingUser: c.resolvingUser,
     }));
 
-    // Return issue without comments field for cleaner structure
-    const { comments: _, ...issueWithoutComments } = result.issue as unknown as Issue & { comments: unknown };
+    // Extract issue without comments field
+    const issueWithComments = result.issue as Issue & { comments: unknown };
+    const { comments: _, ...issue } = issueWithComments;
 
-    return {
-      issue: issueWithoutComments as Issue,
-      comments,
-    };
+    return { issue, comments };
   } catch (err) {
     if (err instanceof LinearAPIError && err.message.includes('Entity not found')) {
       return null;

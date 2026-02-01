@@ -129,12 +129,12 @@ function findMostRecentComment(comments: Comment[]): Comment | null {
 
 function createAddSubcommand(): Command {
   return new Command('add')
-    .description('Add a comment to an issue')
+    .description('Add a comment to an issue (default output: comment URL)')
     .argument('<identifier>', 'Issue identifier (e.g., ENG-123)')
-    .argument('[body]', 'Comment body (optional, uses stdin or editor if not provided)')
-    .option('--reply-to <id>', 'Reply to a comment (comment ID or "last")')
-    .option('--json', 'Output created comment as JSON')
-    .option('--quiet', 'Suppress output')
+    .argument('[body]', 'Comment body (uses stdin or opens editor if not provided)')
+    .option('--reply-to <id>', 'Reply to a comment (comment ID or "last" for most recent)')
+    .option('--json', 'Output created comment as JSON instead of URL')
+    .option('--quiet', 'Suppress all output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, body: string | undefined, options: CommentsAddOptions) => {
       let ctx;
@@ -193,14 +193,11 @@ function createAddSubcommand(): Command {
       // If the target comment is already a reply, we use its parent to continue the thread.
       let parentId: string | undefined;
       if (options.replyTo) {
+        const result = await getComments(client, identifier);
+        const comments = result?.comments ?? [];
+
         if (options.replyTo === 'last') {
-          // Get comments to find the most recent one
-          const result = await getComments(client, identifier);
-          if (!result || result.comments.length === 0) {
-            console.error('Error: No comments to reply to');
-            process.exit(1);
-          }
-          const mostRecent = findMostRecentComment(result.comments);
+          const mostRecent = findMostRecentComment(comments);
           if (!mostRecent) {
             console.error('Error: No comments to reply to');
             process.exit(1);
@@ -208,20 +205,11 @@ function createAddSubcommand(): Command {
           // If the most recent comment is a reply, use its parent (continue the thread)
           parentId = mostRecent.parentId ?? mostRecent.id;
         } else {
-          // Validate the provided comment ID exists and resolve threading
-          const result = await getComments(client, identifier);
-          if (result) {
-            const targetComment = result.comments.find(c => c.id === options.replyTo);
-            if (targetComment) {
-              // If target is a reply, use its parent (continue the thread)
-              parentId = targetComment.parentId ?? targetComment.id;
-            } else {
-              // Comment not found, use the ID as-is (API will validate)
-              parentId = options.replyTo;
-            }
-          } else {
-            parentId = options.replyTo;
-          }
+          // Find the target comment to resolve threading
+          const targetComment = comments.find(c => c.id === options.replyTo);
+          // If target is a reply, use its parent (continue the thread)
+          // If not found, use as-is and let the API validate
+          parentId = targetComment?.parentId ?? targetComment?.id ?? options.replyTo;
         }
       }
 
@@ -258,7 +246,7 @@ function createListSubcommand(): Command {
     .description('List comments on an issue')
     .argument('<identifier>', 'Issue identifier (e.g., ENG-123)')
     .option('--json', 'Output as JSON')
-    .option('--limit <n>', 'Limit to N top-level comments (includes all replies)')
+    .option('--limit <n>', 'Limit to N most recent top-level comments (includes all replies)')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: CommentsListOptions) => {
       await executeList(identifier, options);
