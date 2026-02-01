@@ -1,6 +1,14 @@
 import { Command } from 'commander';
 import { getAuthContext } from '../../lib/config.ts';
-import { LinearClient, getIssue, type Issue } from '../../lib/api.ts';
+import {
+  LinearClient,
+  getIssue,
+  getComments,
+  buildCommentTree,
+  type Issue,
+  type CommentNode,
+} from '../../lib/api.ts';
+import { countComments, printCommentTree } from '../../lib/comments-display.ts';
 
 function formatPriority(priority: number): string {
   switch (priority) {
@@ -23,7 +31,9 @@ function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString();
 }
 
-function printIssueDetails(issue: Issue): void {
+const DEFAULT_COMMENTS_LIMIT = 3;
+
+function printIssueDetails(issue: Issue, commentTree?: CommentNode[]): void {
   console.log(`${issue.identifier}: ${issue.title}`);
   console.log('━'.repeat(50));
   console.log();
@@ -57,6 +67,32 @@ function printIssueDetails(issue: Issue): void {
 
   console.log();
   console.log(`URL: ${issue.url}`);
+
+  // Print comments section if comments were fetched
+  if (commentTree !== undefined) {
+    console.log();
+    console.log('━'.repeat(50));
+
+    if (commentTree.length === 0) {
+      console.log('No comments');
+    } else {
+      const totalCount = countComments(commentTree);
+      const displayedTree = commentTree.slice(0, DEFAULT_COMMENTS_LIMIT);
+      const displayedCount = countComments(displayedTree);
+      const remainingTopLevel = commentTree.length - displayedTree.length;
+
+      console.log(`Comments (${totalCount}):`);
+      console.log();
+
+      printCommentTree(displayedTree);
+
+      if (remainingTopLevel > 0) {
+        const remainingTotal = totalCount - displayedCount;
+        console.log(`... ${remainingTotal} more comment${remainingTotal === 1 ? '' : 's'}`);
+        console.log(`Run 'linproj issues comments ${issue.identifier}' to see all`);
+      }
+    }
+  }
 }
 
 function getFieldValue(issue: Issue, field: string): string {
@@ -100,6 +136,7 @@ interface GetOptions {
   json?: boolean;
   field?: string;
   workspace?: string;
+  comments?: boolean; // defaults to true, set to false by --no-comments
 }
 
 export function createGetCommand(): Command {
@@ -108,6 +145,7 @@ export function createGetCommand(): Command {
     .argument('<identifier>', 'Issue identifier (e.g., PROJ-123)')
     .option('--json', 'Output as JSON')
     .option('--field <field>', 'Output a single field (id, url, state, etc.)')
+    .option('--no-comments', 'Exclude comments from output')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (identifier: string, options: GetOptions) => {
       let ctx;
@@ -136,11 +174,27 @@ export function createGetCommand(): Command {
         return;
       }
 
+      // Fetch comments unless --no-comments is set (comments defaults to true)
+      let commentTree: CommentNode[] | undefined;
+      if (options.comments !== false) {
+        const result = await getComments(client, identifier);
+        if (result) {
+          commentTree = buildCommentTree(result.comments);
+        }
+      }
+
       if (options.json) {
-        console.log(JSON.stringify(issue, null, 2));
+        const output: Record<string, unknown> = { ...issue };
+        if (commentTree !== undefined) {
+          // Apply truncation for JSON output too
+          const displayedTree = commentTree.slice(0, DEFAULT_COMMENTS_LIMIT);
+          output.comments = displayedTree;
+          output.totalComments = countComments(commentTree);
+        }
+        console.log(JSON.stringify(output, null, 2));
         return;
       }
 
-      printIssueDetails(issue);
+      printIssueDetails(issue, commentTree);
     });
 }
