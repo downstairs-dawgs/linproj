@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-02-01
+
+### Added
+
+#### Comment Support
+
+Full support for Linear comment threads:
+
+- `issues comments <identifier>` - List all comments on an issue with threaded display
+- `issues comments add <identifier> [body]` - Add a new comment (supports stdin for multiline)
+- `issues comments add --reply-to <id>` - Reply to an existing comment
+- `issues comments add --reply-to last` - Quick reply to the most recent comment
+- `issues comment edit <id> [body]` - Edit an existing comment
+- `issues comment delete <id>` - Delete a comment
+- `issues comment resolve <id>` - Resolve a comment thread
+- `issues comment unresolve <id>` - Reopen a resolved thread
+
+All commands support `--json` and `--quiet` flags for scripting.
+
+#### Terminal Markdown Rendering
+
+Issue descriptions and comments now render with rich terminal formatting:
+
+- **Headings** - Bold with `#` prefix preserved
+- **Emphasis** - Bold, italic, and ~~strikethrough~~
+- **Code** - Inline \`code\` and fenced code blocks with language labels
+- **Lists** - Bullets (•), numbered lists, and task lists (✓/○)
+- **Links** - Clickable hyperlinks in supported terminals (OSC 8)
+- **Blockquotes** - Indented with cyan accent bar
+- **Tables** - Aligned columns with header separators
+
+Use `--raw` flag to see original markdown without rendering.
+
+#### Comment Display
+
+Comments display with a visual tree structure:
+
+```
+◆ Alice Chen
+│ 2 hours ago
+│ This is the comment body with **markdown** rendering.
+│
+├─◇ Bob Smith
+│   1 hour ago
+│   This is a reply.
+│
+└─◇ Carol Dev
+    30 min ago
+    Another reply.
+```
+
+Resolved threads collapse to a compact preview:
+
+```
+✓ Dave Ops · 3 hours ago + 2 replies
+  "First 45 characters of the comment..."
+```
+
+### Changed
+
+- `issues get` now renders description markdown by default
+- `issues comments` now renders comment bodies with markdown by default
+- Requires Bun 1.3.8+ (for `Bun.markdown` API)
+
 ## [0.5.0] - 2026-01-28
 
 ### Added
@@ -64,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `issues create` command with team selection, priority, and assignment
 - API key authentication
 
+[0.6.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.4.0...v0.5.0
 [0.3.1]: https://github.com/downstairs-dawgs/linproj/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.2.0...v0.3.0

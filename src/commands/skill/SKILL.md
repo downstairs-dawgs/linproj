@@ -77,6 +77,17 @@ EOF
 - `completed` - Done
 - `canceled` - Won't do
 
+## Comments
+```bash
+linproj issues comments ENG-123                              # List comments
+linproj issues comments add ENG-123 "Comment"                # Add comment
+linproj issues comments add ENG-123 --reply-to last "Reply"  # Reply to latest
+linproj issues comment edit <comment-id> "New text"          # Edit comment
+linproj issues comment delete <comment-id>                   # Delete comment
+linproj issues comment resolve <comment-id>                  # Resolve thread
+linproj issues comment unresolve <comment-id>                # Unresolve thread
+```
+
 ## Tips
 - Use `-a me` to filter/assign to current user
 - Use `--json` for scriptable output
