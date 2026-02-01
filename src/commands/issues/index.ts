@@ -7,6 +7,7 @@ import { createEditCommand } from './edit.ts';
 import { createDoneCommand } from './done.ts';
 import { createStartCommand } from './start.ts';
 import { createCommentsCommand } from './comments.ts';
+import { createCommentCommand } from './comment.ts';
 
 export function createIssuesCommand(): Command {
   const issues = new Command('issues').description('Issue commands');
@@ -19,6 +20,7 @@ export function createIssuesCommand(): Command {
   issues.addCommand(createDoneCommand());
   issues.addCommand(createStartCommand());
   issues.addCommand(createCommentsCommand());
+  issues.addCommand(createCommentCommand());
 
   return issues;
 }

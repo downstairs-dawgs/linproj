@@ -506,6 +506,18 @@ export interface DeleteCommentResponse {
   };
 }
 
+export interface CommentUpdateInput {
+  body?: string;
+  resolvingCommentId?: string | null;
+}
+
+export interface UpdateCommentResponse {
+  commentUpdate: {
+    success: boolean;
+    comment: Comment & { parent?: { id: string } };
+  };
+}
+
 export interface ProjectUpdate {
   id: string;
   body: string;
@@ -973,4 +985,96 @@ export async function deleteComment(
   });
 
   return result.commentDelete.success;
+}
+
+interface GetCommentResponse {
+  comment: (Comment & { parent?: { id: string }; issue: { id: string; identifier: string } }) | null;
+}
+
+export async function getComment(
+  client: LinearClient,
+  commentId: string
+): Promise<(Comment & { issueId: string; issueIdentifier: string }) | null> {
+  const query = `
+    query($id: String!) {
+      comment(id: $id) {
+        ${COMMENT_FIELDS}
+        issue {
+          id
+          identifier
+        }
+      }
+    }
+  `;
+
+  try {
+    const result = await client.query<GetCommentResponse>(query, { id: commentId });
+
+    if (!result.comment) {
+      return null;
+    }
+
+    const c = result.comment;
+    return {
+      id: c.id,
+      body: c.body,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      editedAt: c.editedAt,
+      url: c.url,
+      user: c.user,
+      botActor: c.botActor,
+      parentId: c.parent?.id,
+      reactionData: c.reactionData,
+      resolvingUser: c.resolvingUser,
+      issueId: c.issue.id,
+      issueIdentifier: c.issue.identifier,
+    };
+  } catch (err) {
+    if (err instanceof LinearAPIError && err.message.includes('Entity not found')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export async function updateComment(
+  client: LinearClient,
+  commentId: string,
+  input: CommentUpdateInput
+): Promise<Comment> {
+  const mutation = `
+    mutation($id: String!, $input: CommentUpdateInput!) {
+      commentUpdate(id: $id, input: $input) {
+        success
+        comment {
+          ${COMMENT_FIELDS}
+        }
+      }
+    }
+  `;
+
+  const result = await client.query<UpdateCommentResponse>(mutation, {
+    id: commentId,
+    input,
+  });
+
+  if (!result.commentUpdate.success) {
+    throw new LinearAPIError('Failed to update comment');
+  }
+
+  const c = result.commentUpdate.comment;
+  return {
+    id: c.id,
+    body: c.body,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    editedAt: c.editedAt,
+    url: c.url,
+    user: c.user,
+    botActor: c.botActor,
+    parentId: c.parent?.id,
+    reactionData: c.reactionData,
+    resolvingUser: c.resolvingUser,
+  };
 }
