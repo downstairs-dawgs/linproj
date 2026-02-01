@@ -5,6 +5,7 @@ import {
   getComment,
   updateComment,
   deleteComment,
+  resolveComment,
   getViewer,
   type Comment,
 } from '../../lib/api.ts';
@@ -23,6 +24,12 @@ interface CommentEditOptions {
 
 interface CommentDeleteOptions {
   yes?: boolean;
+  json?: boolean;
+  quiet?: boolean;
+  workspace?: string;
+}
+
+interface CommentResolveOptions {
   json?: boolean;
   quiet?: boolean;
   workspace?: string;
@@ -259,12 +266,126 @@ function createDeleteSubcommand(): Command {
     });
 }
 
+function createResolveSubcommand(): Command {
+  return new Command('resolve')
+    .description('Resolve a comment thread')
+    .argument('<comment-id>', 'Comment ID (UUID)')
+    .option('--json', 'Output result as JSON')
+    .option('--quiet', 'Suppress output')
+    .option('-w, --workspace <name>', 'Use a different workspace')
+    .action(async (commentId: string, options: CommentResolveOptions) => {
+      let ctx;
+      try {
+        ctx = await getAuthContext(options.workspace);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
+      const client = new LinearClient(ctx.auth);
+
+      // Fetch the comment to verify it exists
+      const comment = await getComment(client, commentId);
+      if (!comment) {
+        console.error('Error: Comment not found');
+        process.exit(1);
+      }
+
+      // Check if already resolved
+      if (comment.resolvingUser) {
+        if (!options.quiet) {
+          console.log('Comment is already resolved');
+        }
+        return;
+      }
+
+      // Resolve the comment
+      let resolvedComment: Comment;
+      try {
+        resolvedComment = await resolveComment(client, commentId, true);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
+      // Output
+      if (options.quiet) {
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(resolvedComment, null, 2));
+        return;
+      }
+
+      console.log(`Resolved comment: ${resolvedComment.url}`);
+    });
+}
+
+function createUnresolveSubcommand(): Command {
+  return new Command('unresolve')
+    .description('Unresolve a comment thread')
+    .argument('<comment-id>', 'Comment ID (UUID)')
+    .option('--json', 'Output result as JSON')
+    .option('--quiet', 'Suppress output')
+    .option('-w, --workspace <name>', 'Use a different workspace')
+    .action(async (commentId: string, options: CommentResolveOptions) => {
+      let ctx;
+      try {
+        ctx = await getAuthContext(options.workspace);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
+      const client = new LinearClient(ctx.auth);
+
+      // Fetch the comment to verify it exists
+      const comment = await getComment(client, commentId);
+      if (!comment) {
+        console.error('Error: Comment not found');
+        process.exit(1);
+      }
+
+      // Check if already unresolved
+      if (!comment.resolvingUser) {
+        if (!options.quiet) {
+          console.log('Comment is not resolved');
+        }
+        return;
+      }
+
+      // Unresolve the comment
+      let unresolvedComment: Comment;
+      try {
+        unresolvedComment = await resolveComment(client, commentId, false);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
+      // Output
+      if (options.quiet) {
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(unresolvedComment, null, 2));
+        return;
+      }
+
+      console.log(`Unresolved comment: ${unresolvedComment.url}`);
+    });
+}
+
 export function createCommentCommand(): Command {
   const comment = new Command('comment')
-    .description('Manage a specific comment (edit, delete)');
+    .description('Manage a specific comment (edit, delete, resolve, unresolve)');
 
   comment.addCommand(createEditSubcommand());
   comment.addCommand(createDeleteSubcommand());
+  comment.addCommand(createResolveSubcommand());
+  comment.addCommand(createUnresolveSubcommand());
 
   return comment;
 }

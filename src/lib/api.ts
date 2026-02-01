@@ -508,7 +508,7 @@ export interface DeleteCommentResponse {
 
 export interface CommentUpdateInput {
   body?: string;
-  resolvingCommentId?: string | null;
+  resolvingUserId?: string | null;
 }
 
 export interface UpdateCommentResponse {
@@ -1077,4 +1077,19 @@ export async function updateComment(
     reactionData: c.reactionData,
     resolvingUser: c.resolvingUser,
   };
+}
+
+export async function resolveComment(
+  client: LinearClient,
+  commentId: string,
+  resolved: boolean
+): Promise<Comment> {
+  // To resolve: set resolvingUserId to the current viewer's ID
+  // To unresolve: set resolvingUserId to null
+  let resolvingUserId: string | null = null;
+  if (resolved) {
+    const viewer = await getViewer(client);
+    resolvingUserId = viewer.id;
+  }
+  return updateComment(client, commentId, { resolvingUserId });
 }
