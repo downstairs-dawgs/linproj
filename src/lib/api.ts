@@ -748,7 +748,7 @@ export async function getUserByEmail(
 export async function getProjects(client: LinearClient): Promise<Project[]> {
   const query = `
     query {
-      projects {
+      projects(first: 250) {
         nodes {
           id
           name
