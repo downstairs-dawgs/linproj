@@ -224,6 +224,7 @@ export interface CreateIssueInput {
   description?: string;
   priority?: number;
   assigneeId?: string;
+  parentId?: string;
 }
 
 // Convenience methods
@@ -326,6 +327,7 @@ export async function createIssue(
       description: input.description,
       priority: input.priority,
       assigneeId: input.assigneeId,
+      parentId: input.parentId,
     },
   });
 

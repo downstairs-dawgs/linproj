@@ -108,6 +108,41 @@ describe('issues create E2E', () => {
     expect(issueIdentifier.startsWith(workspace2Team.key)).toBe(true);
   });
 
+  it('creates a sub-issue with --parent', async () => {
+    const testTeam = teams[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key });
+
+    const parentResult = await runCLI(
+      ['issues', 'create', '--title', `[TEST] Parent issue ${Date.now()}`],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    expect(parentResult.exitCode).toBe(0);
+    const parentMatch = parentResult.stdout.match(/([A-Z]+-\d+):/);
+    expect(parentMatch).not.toBeNull();
+    const parentIdentifier = parentMatch![1]!;
+    ctx.trackCreatedIssue(parentIdentifier);
+
+    const childResult = await runCLI(
+      [
+        'issues',
+        'create',
+        '--title',
+        `[TEST] Sub-issue ${Date.now()}`,
+        '--parent',
+        parentIdentifier,
+      ],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    expect(childResult.exitCode).toBe(0);
+    expect(childResult.stdout).toContain('Created issue');
+
+    const childMatch = childResult.stdout.match(/([A-Z]+-\d+):/);
+    expect(childMatch).not.toBeNull();
+    ctx.trackCreatedIssue(childMatch![1]!);
+  });
+
   it('fails when no team specified, no default, and no TTY', async () => {
     // Setup workspace without default team
     await ctx.setupV2Config();
