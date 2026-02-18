@@ -32,11 +32,11 @@ For each issue where `state` is "Paused", fetch its comments:
 linproj issues comments list <IDENTIFIER> --json
 ```
 
-This is needed for Rule 6 (Paused without explanation).
+This is needed for Rule 5 (Paused without explanation).
 
 ### 3. Apply lint rules
 
-Apply all 12 rules below to every fetched issue. Track findings as a list of `{rule, severity, identifier, title, detail, suggestion}`.
+Apply all 11 rules below to every fetched issue. Track findings as a list of `{rule, severity, identifier, title, detail, suggestion}`.
 
 ---
 
@@ -63,20 +63,14 @@ Apply all 12 rules below to every fetched issue. Track findings as a list of `{r
 - Detail: "In Progress but nobody is assigned"
 - Suggestion: "Assign someone — In Progress means actively worked on"
 
-**Rule 4 — In Progress without due date**
-- Severity: Warning
-- Condition: `state == "In Progress"` AND `dueDate` is null/empty
-- Detail: "In Progress without a due date"
-- Suggestion: "Add a due date to set expectations on delivery"
-
-**Rule 5 — Multiple In Progress per person**
+**Rule 4 — Multiple In Progress per person**
 - Severity: Critical
 - Condition: More than one issue with `state == "In Progress"` for the same `assignee`
 - Detail: "Assignee has N issues In Progress simultaneously"
 - Suggestion: "Focus on one — the guide recommends one In Progress issue per person"
 - Note: report this once per person, listing all their In Progress issue identifiers
 
-**Rule 6 — Paused without explanation comment**
+**Rule 5 — Paused without explanation comment**
 - Severity: Critical
 - Condition: `state == "Paused"` AND the issue's comments (fetched in step 2) do not contain any comment that explains why it was paused or what would unblock it
 - Detail: "Paused without an explanation comment"
@@ -85,38 +79,38 @@ Apply all 12 rules below to every fetched issue. Track findings as a list of `{r
 
 ### LLM-Judged Rules (use your judgment on content quality)
 
-**Rule 7 — Missing or weak description (non-backlog)**
+**Rule 6 — Missing or weak description (non-backlog)**
 - Severity: Warning
 - Applies to: issues where `state` is NOT "Backlog" and NOT "Idea"
 - Condition: description is empty, is just a link with no context, or merely restates the title without adding why/context
 - Detail: describe what's missing (e.g., "Description is empty", "Description only restates the title")
 - Suggestion: "Add context: why are we doing this, what triggered it, any constraints or background"
 
-**Rule 8 — Unclear title**
+**Rule 7 — Unclear title**
 - Severity: Suggestion
 - Condition: title is vague, overly generic, or doesn't convey what the issue actually is (e.g., "Fix bug", "Update things", "Misc")
 - Detail: explain why the title is unclear
 - Suggestion: propose a clearer title if possible
 
-**Rule 9 — Large issue not using tracking pattern**
+**Rule 8 — Large issue not using tracking pattern**
 - Severity: Warning
 - Condition: description or title suggests a large scope of work (multiple deliverables, multi-week effort, "phase 1/2/3", etc.) but the issue is NOT in "Tracking" state and has no sub-issues
 - Detail: "Looks like a large workstream but isn't using the tracking pattern"
 - Suggestion: "Convert to a Tracking issue with atomic sub-issues"
 
-**Rule 10 — Description links without context**
+**Rule 9 — Description links without context**
 - Severity: Suggestion
 - Condition: description contains URLs/links but no surrounding text explaining what they are or why they matter
 - Detail: "Description has links but no context around them"
 - Suggestion: "Add a sentence explaining what each link is and why it's relevant"
 
-**Rule 11 — Paused stale (>2 months)**
+**Rule 10 — Paused stale (>2 months)**
 - Severity: Warning
 - Condition: `state == "Paused"` AND issue has not been updated in more than 60 days
 - Detail: "Paused for N days without activity"
 - Suggestion: "Move to Canceled if no longer relevant, or back to Backlog if it might be picked up later"
 
-**Rule 12 — Sub-issues nested too deep**
+**Rule 11 — Sub-issues nested too deep**
 - Severity: Warning
 - Condition: an issue has sub-issues that themselves have sub-issues (more than one layer of nesting)
 - Detail: "Sub-issues are nested more than one layer deep"
@@ -207,6 +201,6 @@ Present findings in this structured format:
 - Use `--json` output from linproj for reliable field access
 - Today's date for staleness calculations: use the current date from context
 - If `linproj` commands fail with auth errors, tell the user to run `linproj auth login`
-- For Rule 5, count In Progress issues per person across the entire project, not just flagged ones
-- Be generous with Rule 6 judgment — any comment that gives context about why work stopped counts
-- For LLM-judged rules (7–10), err on the side of not flagging — only flag clear violations
+- For Rule 4, count In Progress issues per person across the entire project, not just flagged ones
+- Be generous with Rule 5 judgment — any comment that gives context about why work stopped counts
+- For LLM-judged rules (6–9), err on the side of not flagging — only flag clear violations
