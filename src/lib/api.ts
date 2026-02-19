@@ -142,6 +142,10 @@ export interface Issue {
   labels?: {
     nodes: IssueLabel[];
   };
+  parent?: {
+    id: string;
+    identifier: string;
+  };
   project?: IssueProject;
 }
 
@@ -386,6 +390,10 @@ const ISSUE_FIELDS = `
       name
       color
     }
+  }
+  parent {
+    id
+    identifier
   }
   project {
     name

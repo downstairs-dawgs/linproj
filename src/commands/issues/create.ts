@@ -217,6 +217,10 @@ export function createCreateCommand(): Command {
         parentId,
       });
 
-      console.log(`✓ Created issue ${issue.identifier}: ${issue.title}`);
+      if (options.parent) {
+        console.log(`✓ Created sub-issue ${issue.identifier}: ${issue.title} (parent: ${options.parent})`);
+      } else {
+        console.log(`✓ Created issue ${issue.identifier}: ${issue.title}`);
+      }
     });
 }

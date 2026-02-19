@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { join } from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { E2ETestContext, runCLI } from './harness.ts';
+import { getIssue } from '../../src/lib/api.ts';
 
 describe('issues create E2E', () => {
   const ctx = new E2ETestContext();
@@ -136,11 +137,18 @@ describe('issues create E2E', () => {
     );
 
     expect(childResult.exitCode).toBe(0);
-    expect(childResult.stdout).toContain('Created issue');
+    expect(childResult.stdout).toContain('Created sub-issue');
+    expect(childResult.stdout).toContain(`parent: ${parentIdentifier}`);
 
     const childMatch = childResult.stdout.match(/([A-Z]+-\d+):/);
     expect(childMatch).not.toBeNull();
-    ctx.trackCreatedIssue(childMatch![1]!);
+    const childIdentifier = childMatch![1]!;
+    ctx.trackCreatedIssue(childIdentifier);
+
+    const client = await ctx.getLinearClient();
+    const childIssue = await getIssue(client, childIdentifier);
+    expect(childIssue).not.toBeNull();
+    expect(childIssue!.parent?.identifier).toBe(parentIdentifier);
   });
 
   it('fails when no team specified, no default, and no TTY', async () => {
