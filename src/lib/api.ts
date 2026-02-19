@@ -114,7 +114,7 @@ export interface IssueLabel {
 }
 
 export interface IssueProject {
-  id?: string;
+  id: string;
   name: string;
 }
 
@@ -229,6 +229,7 @@ export interface CreateIssueInput {
   priority?: number;
   assigneeId?: string;
   parentId?: string;
+  projectId?: string;
 }
 
 // Convenience methods
@@ -332,6 +333,7 @@ export async function createIssue(
       priority: input.priority,
       assigneeId: input.assigneeId,
       parentId: input.parentId,
+      projectId: input.projectId,
     },
   });
 
@@ -396,6 +398,7 @@ const ISSUE_FIELDS = `
     identifier
   }
   project {
+    id
     name
   }
 `;

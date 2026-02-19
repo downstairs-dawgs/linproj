@@ -199,6 +199,7 @@ export function createCreateCommand(): Command {
       }
 
       let parentId: string | undefined;
+      let projectId: string | undefined;
       if (options.parent) {
         const parentIssue = await getIssue(client, options.parent);
         if (!parentIssue) {
@@ -206,6 +207,7 @@ export function createCreateCommand(): Command {
           process.exit(1);
         }
         parentId = parentIssue.id;
+        projectId = parentIssue.project?.id;
       }
 
       const issue = await createIssue(client, {
@@ -215,6 +217,7 @@ export function createCreateCommand(): Command {
         priority,
         assigneeId,
         parentId,
+        projectId,
       });
 
       if (options.parent) {
