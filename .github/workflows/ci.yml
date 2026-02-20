@@ -21,7 +21,7 @@ jobs:
       # Run E2E tests with reduced concurrency to avoid API rate limits
       # and retries for flaky network conditions
       - name: Run E2E tests
-        run: bun test tests/e2e --preload ./tests/e2e/preload.ts --max-concurrency 5 --retry 2
+        run: bun test tests/e2e --max-concurrency 5 --retry 2
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 

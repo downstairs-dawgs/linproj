@@ -1,11 +1,11 @@
 /**
  * Shared helpers for E2E tests.
- *
- * Note: Timeout is configured via tests/e2e/preload.ts which is loaded
- * via `bun test --preload` to ensure it applies before tests register.
  */
 
+import { setDefaultTimeout } from 'bun:test';
 import { join } from 'node:path';
+
+setDefaultTimeout(30_000);
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import {

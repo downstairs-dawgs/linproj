@@ -14,46 +14,9 @@ import { tmpdir } from 'node:os';
 import { readdirSync, unlinkSync, existsSync } from 'node:fs';
 import { LinearClient, getIssue, deleteIssue } from '../../src/lib/api.ts';
 import { getAuth } from '../../src/lib/config.ts';
+import { runCLI } from './harness.ts';
 
-const CLI_PATH = join(import.meta.dir, '../../src/index.ts');
 const EDITORS_PATH = join(import.meta.dir, '../fixtures/editors');
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-async function runCLI(
-  args: string[],
-  options: { env?: Record<string, string>; stdin?: string } = {}
-): Promise<RunResult> {
-  const env = {
-    ...process.env,
-    ...options.env,
-  };
-
-  const proc = Bun.spawn(['bun', 'run', CLI_PATH, ...args], {
-    env,
-    stdin: options.stdin ? 'pipe' : undefined,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  if (options.stdin) {
-    proc.stdin?.write(options.stdin);
-    proc.stdin?.end();
-  }
-
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-
-  const exitCode = await proc.exited;
-
-  return { exitCode, stdout, stderr };
-}
 
 function cleanupRecoveryFiles(identifier: string) {
   const tmp = tmpdir();
