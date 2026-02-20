@@ -286,7 +286,7 @@ describe('renderFrontmatter', () => {
     team: { key: 'PROJ', name: 'Project Team' },
     assignee: { id: 'user-1', name: 'Jane Doe', email: 'jane@example.com' },
     labels: { nodes: [{ name: 'bug', color: '#ff0000' }] },
-    project: { name: 'Q1 Goals' },
+    project: { id: 'project-1', name: 'Q1 Goals' },
   };
 
   it('renders issue as frontmatter with description', () => {

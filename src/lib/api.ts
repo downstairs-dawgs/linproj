@@ -114,6 +114,7 @@ export interface IssueLabel {
 }
 
 export interface IssueProject {
+  id?: string;
   name: string;
 }
 
