@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { join } from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { E2ETestContext, runCLI } from './harness.ts';
+import { getIssue } from '../../src/lib/api.ts';
 
 describe('issues create E2E', () => {
   const ctx = new E2ETestContext();
@@ -106,6 +107,48 @@ describe('issues create E2E', () => {
 
     // Verify issue was created in workspace2's default team
     expect(issueIdentifier.startsWith(workspace2Team.key)).toBe(true);
+  });
+
+  it('creates a sub-issue with --parent', async () => {
+    const testTeam = teams[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key });
+
+    const parentResult = await runCLI(
+      ['issues', 'create', '--title', `[TEST] Parent issue ${Date.now()}`],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    expect(parentResult.exitCode).toBe(0);
+    const parentMatch = parentResult.stdout.match(/([A-Z]+-\d+):/);
+    expect(parentMatch).not.toBeNull();
+    const parentIdentifier = parentMatch![1]!;
+    ctx.trackCreatedIssue(parentIdentifier);
+
+    const childResult = await runCLI(
+      [
+        'issues',
+        'create',
+        '--title',
+        `[TEST] Sub-issue ${Date.now()}`,
+        '--parent',
+        parentIdentifier,
+      ],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    expect(childResult.exitCode).toBe(0);
+    expect(childResult.stdout).toContain('Created sub-issue');
+    expect(childResult.stdout).toContain(`parent: ${parentIdentifier}`);
+
+    const childMatch = childResult.stdout.match(/([A-Z]+-\d+):/);
+    expect(childMatch).not.toBeNull();
+    const childIdentifier = childMatch![1]!;
+    ctx.trackCreatedIssue(childIdentifier);
+
+    const client = await ctx.getLinearClient();
+    const childIssue = await getIssue(client, childIdentifier);
+    expect(childIssue).not.toBeNull();
+    expect(childIssue!.parent?.identifier).toBe(parentIdentifier);
   });
 
   it('fails when no team specified, no default, and no TTY', async () => {

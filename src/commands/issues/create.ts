@@ -4,6 +4,7 @@ import {
   LinearClient,
   getTeams,
   getViewer,
+  getIssue,
   createIssue,
 } from '../../lib/api.ts';
 
@@ -113,6 +114,7 @@ interface CreateOptions {
   description?: string;
   assignToMe?: boolean;
   priority?: string;
+  parent?: string;
   workspace?: string;
 }
 
@@ -127,6 +129,7 @@ export function createCreateCommand(): Command {
       '-p, --priority <priority>',
       'Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low'
     )
+    .option('--parent <identifier>', 'Parent issue identifier (creates a sub-issue)')
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (options: CreateOptions) => {
       let ctx;
@@ -195,15 +198,32 @@ export function createCreateCommand(): Command {
         }
       }
 
-      // Create the issue
+      let parentId: string | undefined;
+      let projectId: string | undefined;
+      if (options.parent) {
+        const parentIssue = await getIssue(client, options.parent);
+        if (!parentIssue) {
+          console.error(`Error: Parent issue '${options.parent}' not found`);
+          process.exit(1);
+        }
+        parentId = parentIssue.id;
+        projectId = parentIssue.project?.id;
+      }
+
       const issue = await createIssue(client, {
         teamId,
         title: title.trim(),
         description: options.description,
         priority,
         assigneeId,
+        parentId,
+        projectId,
       });
 
-      console.log(`✓ Created issue ${issue.identifier}: ${issue.title}`);
+      if (options.parent) {
+        console.log(`✓ Created sub-issue ${issue.identifier}: ${issue.title} (parent: ${options.parent})`);
+      } else {
+        console.log(`✓ Created issue ${issue.identifier}: ${issue.title}`);
+      }
     });
 }

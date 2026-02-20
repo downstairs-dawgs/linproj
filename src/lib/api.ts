@@ -114,7 +114,7 @@ export interface IssueLabel {
 }
 
 export interface IssueProject {
-  id?: string;
+  id: string;
   name: string;
 }
 
@@ -141,6 +141,10 @@ export interface Issue {
   };
   labels?: {
     nodes: IssueLabel[];
+  };
+  parent?: {
+    id: string;
+    identifier: string;
   };
   project?: IssueProject;
 }
@@ -224,6 +228,8 @@ export interface CreateIssueInput {
   description?: string;
   priority?: number;
   assigneeId?: string;
+  parentId?: string;
+  projectId?: string;
 }
 
 // Convenience methods
@@ -326,6 +332,8 @@ export async function createIssue(
       description: input.description,
       priority: input.priority,
       assigneeId: input.assigneeId,
+      parentId: input.parentId,
+      projectId: input.projectId,
     },
   });
 
@@ -385,7 +393,12 @@ const ISSUE_FIELDS = `
       color
     }
   }
+  parent {
+    id
+    identifier
+  }
   project {
+    id
     name
   }
 `;
