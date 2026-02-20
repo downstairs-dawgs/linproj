@@ -51,7 +51,7 @@ function parseHealth(value: string): ProjectHealth {
     console.error('Valid values: on-track, at-risk, off-track');
     process.exit(1);
   }
-  return HEALTH_MAP[healthLower];
+  return HEALTH_MAP[healthLower]!;
 }
 
 async function readStdin(): Promise<string> {
@@ -79,7 +79,7 @@ function truncateId(id: string): string {
 }
 
 function truncateBody(body: string, maxLen = 50): string {
-  const firstLine = body.split('\n')[0].trim();
+  const firstLine = (body.split('\n')[0] ?? '').trim();
   if (firstLine.length <= maxLen) return firstLine;
   return firstLine.slice(0, maxLen - 3) + '...';
 }
