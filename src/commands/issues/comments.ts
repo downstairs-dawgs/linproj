@@ -80,8 +80,7 @@ function createAddSubcommand(): Command {
       // Determine comment body from: argument > stdin > editor
       let commentBody: string;
 
-      if (body) {
-        // Body provided as argument
+      if (body !== undefined) {
         commentBody = body;
       } else if (await defaultHasStdinData()) {
         // Read from stdin
