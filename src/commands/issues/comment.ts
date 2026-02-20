@@ -109,7 +109,7 @@ function createEditSubcommand(): Command {
       // Determine new body from: argument > stdin > editor
       let newBody: string;
 
-      if (body) {
+      if (body !== undefined) {
         newBody = body;
       } else if (await defaultHasStdinData()) {
         newBody = await defaultReadStdin();
