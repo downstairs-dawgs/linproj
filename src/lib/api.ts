@@ -397,7 +397,7 @@ const ISSUE_FIELDS = `
     id
     identifier
   }
- project {
+  project {
     id
     name
   }
