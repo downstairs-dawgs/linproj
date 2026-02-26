@@ -412,7 +412,7 @@ export function normalizeIssueIdentifier(input: string): string {
   const match = trimmed.match(
     /^(?:https?:\/\/)?(?:www\.)?linear\.app\/[^/]+\/issue\/([A-Za-z]+-\d+)/
   );
-  return match ? match[1] : trimmed;
+  return match?.[1] ?? trimmed;
 }
 
 export async function getIssue(
