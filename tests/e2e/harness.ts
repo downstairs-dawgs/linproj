@@ -75,6 +75,7 @@ export async function runCLI(
 
   const proc = Bun.spawn(['bun', 'run', CLI_PATH, ...args], {
     env,
+    stdin: new Uint8Array(0),
     stdout: 'pipe',
     stderr: 'pipe',
   });
