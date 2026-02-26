@@ -397,16 +397,29 @@ const ISSUE_FIELDS = `
     id
     identifier
   }
-  project {
+ project {
     id
     name
   }
 `;
 
+/**
+ * If input is a Linear URL (e.g. https://linear.app/team/issue/ENG-123/...),
+ * extract and return the issue identifier. Otherwise return the trimmed input.
+ */
+export function normalizeIssueIdentifier(input: string): string {
+  const trimmed = input.trim();
+  const match = trimmed.match(
+    /^(?:https?:\/\/)?(?:www\.)?linear\.app\/[^/]+\/issue\/([A-Za-z]+-\d+)/
+  );
+  return match ? match[1] : trimmed;
+}
+
 export async function getIssue(
   client: LinearClient,
   identifier: string
 ): Promise<Issue | null> {
+  identifier = normalizeIssueIdentifier(identifier);
   const query = `
     query($identifier: String!) {
       issue(id: $identifier) {
@@ -927,6 +940,7 @@ export async function getComments(
   issueId: string,
   first = 100
 ): Promise<{ issue: Issue; comments: Comment[] } | null> {
+  issueId = normalizeIssueIdentifier(issueId);
   const query = `
     query($issueId: String!, $first: Int!) {
       issue(id: $issueId) {
