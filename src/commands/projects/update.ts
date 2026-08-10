@@ -9,6 +9,7 @@ import {
   type ProjectUpdate,
 } from '../../lib/api.ts';
 import { resolveProjectForUpdate } from '../../lib/resolve.ts';
+import { padRight } from '../../lib/output.ts';
 
 interface CreateOptions {
   body?: string;
@@ -66,10 +67,6 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8').trim();
 }
 
-function padRight(str: string, len: number): string {
-  return str.length >= len ? str.slice(0, len) : str + ' '.repeat(len - str.length);
-}
-
 function formatDate(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
@@ -91,8 +88,11 @@ function printUpdatesTable(updates: ProjectUpdate[]): void {
   }
 
   const dateWidth = 10;
-  const healthWidth = Math.max(6, ...updates.map((u) => (HEALTH_DISPLAY[u.health] ?? u.health).length));
-  const authorWidth = Math.max(6, ...updates.map((u) => u.user.name.length));
+  const healthWidth = Math.max(
+    6,
+    ...updates.map((update) => (HEALTH_DISPLAY[update.health] ?? update.health).length)
+  );
+  const authorWidth = Math.max(6, ...updates.map((update) => update.user.name.length));
   const idWidth = 8;
 
   console.log(
@@ -188,14 +188,19 @@ function createListSubcommand(): Command {
         process.exit(1);
       }
 
-      const updates = await listProjectUpdates(client, projectId, limit);
+      try {
+        const updates = await listProjectUpdates(client, projectId, limit);
 
-      if (options.json) {
-        console.log(JSON.stringify(updates, null, 2));
-        return;
+        if (options.json) {
+          console.log(JSON.stringify(updates, null, 2));
+          return;
+        }
+
+        printUpdatesTable(updates);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
       }
-
-      printUpdatesTable(updates);
     });
 }
 
@@ -212,6 +217,11 @@ function createEditSubcommand(): Command {
       let health: ProjectHealth | undefined;
       if (options.health) {
         health = parseHealth(options.health);
+      }
+
+      if (options.body !== undefined && !options.body.trim()) {
+        console.error('Error: --body cannot be empty.');
+        process.exit(1);
       }
 
       let body = options.body;

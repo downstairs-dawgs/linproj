@@ -136,6 +136,17 @@ linproj projects update "My Project" --health on-track --body "Sprint going well
 linproj projects update "My Project" --health at-risk --body "Blocked on API"
 ```
 
+Reviewing and revising past updates:
+```bash
+linproj projects update list "My Project"
+linproj projects update list "My Project" --limit 5 --json
+linproj projects update edit 87d76fd7 --body "Corrected update"
+linproj projects update edit 87d76fd7 --health at-risk
+```
+
+The ID column from `update list` is a short prefix of the update UUID. Both the
+prefix and the full UUID work as `<update-id>` for `update edit`.
+
 ### Project Health Values
 - `on-track` - Project is progressing as planned
 - `at-risk` - Project has potential blockers
