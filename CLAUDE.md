@@ -55,3 +55,38 @@ at a real workspace writes test data into it. If the selector comes back empty,
 the fix is to authenticate against `downstairs-dawgs`, not to substitute another
 workspace.
 
+
+## Integration Test Recordings (Polly)
+
+Integration tests replay recorded Linear API responses via [Polly.JS](https://netflix.github.io/pollyjs/)
+instead of hitting the network. Recordings live in `tests/recordings/<name>_<hash>/recording.har`.
+
+Polly matches requests by body (`matchRequestsBy.body: true` in `tests/setup.ts`), so
+any change to a GraphQL query string invalidates the matching recording and the test
+starts missing. Each entry's `_id` is a hash of the request, so hand-editing the
+request body in a HAR does not work. Re-record instead:
+
+```sh
+LINEAR_API_KEY=<downstairs-dawgs key> POLLY_MODE=record bun test tests/integration/<file>.test.ts
+```
+
+`POLLY_MODE` defaults to `replay`. See the E2E section above for selecting the
+`downstairs-dawgs` key without hardcoding a workspace UUID.
+
+### Sanitizing recordings
+
+This repo is public and recordings embed whole API responses, so re-recording against
+a real workspace commits its project names, issue titles, and user emails.
+
+`tests/setup.ts` strips the `authorization` header on persist, so API keys do not land
+in a HAR. Nothing sanitizes response bodies. That is the part you have to get right.
+
+- Record against `downstairs-dawgs` only, never a production workspace.
+- If you record elsewhere, replace the real values in the response bodies before
+  committing. Leave `_id` alone: it is derived from the request, so editing a response
+  does not invalidate it.
+- Check what you are about to commit:
+
+  ```sh
+  git diff --cached -- tests/recordings | grep -iE '<your-org-slug>|@<your-domain>'
+  ```
