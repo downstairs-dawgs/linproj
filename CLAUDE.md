@@ -36,8 +36,22 @@ test("hello world", () => {
 E2E tests run against the real Linear API using the `downstairs-dawgs` workspace. To run e2e tests:
 
 ```sh
-LINEAR_API_KEY=$(cat ~/.config/linproj/workspaces/c650d32a-125e-4cb7-83b4-b57cc2d457f2.json | jq -r '.auth.apiKey') bun test tests/e2e
+LINEAR_API_KEY=$(jq -r 'select(.urlKey == "downstairs-dawgs") | .auth.apiKey' ~/.config/linproj/workspaces/*.json)
+if [ -z "$LINEAR_API_KEY" ]; then
+  echo "downstairs-dawgs workspace not configured; run: linproj auth login"
+else
+  bun test tests/e2e
+fi
 ```
 
-The UUID `c650d32a-125e-4cb7-83b4-b57cc2d457f2` is the Linear workspace ID for `downstairs-dawgs`. This ensures tests run against the correct workspace.
+The workspace is selected by its `urlKey`, not by config filename. Each workspace
+is stored as `~/.config/linproj/workspaces/<organizationId>.json`, and that UUID
+differs per machine and changes whenever the workspace is re-authenticated, so
+hardcoding it goes stale and fails as a silent 401.
+
+Do not fall back to picking whichever workspace file happens to be first. The e2e
+suite creates issues, transitions them, and posts project updates, so pointing it
+at a real workspace writes test data into it. If the selector comes back empty,
+the fix is to authenticate against `downstairs-dawgs`, not to substitute another
+workspace.
 
