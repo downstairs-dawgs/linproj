@@ -7,6 +7,7 @@ import { createWorkspaceCommand } from './commands/workspace/index.ts';
 import { createConfigCommand } from './commands/config/index.ts';
 import { createSkillCommand } from './commands/skill/index.ts';
 import { createProjectsCommand } from './commands/projects/index.ts';
+import { createTeamsCommand } from './commands/teams/index.ts';
 
 const program = new Command();
 
@@ -21,5 +22,6 @@ program.addCommand(createWorkspaceCommand());
 program.addCommand(createConfigCommand());
 program.addCommand(createSkillCommand());
 program.addCommand(createProjectsCommand());
+program.addCommand(createTeamsCommand());
 
 program.parse();

@@ -18,6 +18,7 @@ A prioritized list of features for the linproj CLI.
 - `config get`, `config set`, `config unset`, `config migrate`
 - Default team configuration per workspace
 - `projects list`, `projects update` - List projects and post status updates
+- `teams list` - List the workspace's teams
 
 ---
 
