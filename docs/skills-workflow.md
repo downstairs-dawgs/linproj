@@ -6,10 +6,10 @@ These Claude Code skills automate recurring Linear project management tasks. The
 
 | Skill | Invocation | Reads/Writes | When to use |
 |-------|-----------|--------------|-------------|
-| **meeting-sync** | `/meeting-sync <project> [file]` | Reads + Writes | After a meeting — sync notes into Linear |
-| **weekly-prep** | `/weekly-prep <project>` | Read-only | Before Monday meeting — prepare agenda |
-| **weekly-update** | `/weekly-update <project>` | Read-only (until you approve posting) | End of week — draft status update |
-| **lint-project** | `/lint-project <project>` | Read-only | Anytime — audit project hygiene |
+| **meeting-sync** | `/linear-meeting-sync <project> [file]` | Reads + Writes | After a meeting - sync notes into Linear |
+| **weekly-prep** | `/linear-weekly-prep <project>` | Read-only | Before Monday meeting - prepare agenda |
+| **weekly-update** | `/linear-weekly-update <project>` | Read-only (until you approve posting) | End of week - draft status update |
+| **lint-project** | `/linear-lint-project <project>` | Read-only | Anytime - audit project hygiene |
 
 ## Weekly rhythm
 
@@ -17,29 +17,29 @@ Here's how the skills fit into a typical week:
 
 ```
 Monday morning
-  └─ /weekly-prep <project>
+  └─ /linear-weekly-prep <project>
        → Slack update (copy-paste to channel)
        → Facilitation guide (speaking order, questions to ask)
 
 Monday meeting
-  └─ /meeting-sync <project>
+  └─ /linear-meeting-sync <project>
        → Comments on discussed issues
        → New issues for action items
        → Status changes (e.g., Paused, Done)
 
 During the week
-  └─ /meeting-sync <project>    (after any sync or 1:1)
-  └─ /lint-project <project>    (periodic hygiene check)
+  └─ /linear-meeting-sync <project>    (after any sync or 1:1)
+  └─ /linear-lint-project <project>    (periodic hygiene check)
 
 Friday
-  └─ /weekly-update <project>
+  └─ /linear-weekly-update <project>
        → Draft update with health rating
        → Post to Linear project updates
 ```
 
 ## Skill details
 
-### `/meeting-sync <project> [notes-file]`
+### `/linear-meeting-sync <project> [notes-file]`
 
 Parses meeting notes (pasted or from a file) and proposes updates to Linear issues.
 
@@ -54,7 +54,7 @@ Parses meeting notes (pasted or from a file) and proposes updates to Linear issu
 - For ambiguous matches, it asks you to pick the right issue
 - New issues start in Backlog and get assigned to tracking issues when possible
 
-### `/weekly-prep <project>`
+### `/linear-weekly-prep <project>`
 
 Generates everything you need for the Monday meeting.
 
@@ -68,7 +68,7 @@ Generates everything you need for the Monday meeting.
 - People with low "update coverage" (active issues but no recent comments) speak first
 - People with thorough Linear updates can be skipped unless they have something to add
 
-### `/weekly-update <project>`
+### `/linear-weekly-update <project>`
 
 Drafts an end-of-week status update for posting to Linear's project updates.
 
@@ -80,9 +80,9 @@ Drafts an end-of-week status update for posting to Linear's project updates.
 
 **Tips:**
 - It groups work by tracking issue/workstream, not just flat lists
-- Review and edit the draft before posting — placeholders are intentional
+- Review and edit the draft before posting - placeholders are intentional
 
-### `/lint-project <project>`
+### `/linear-lint-project <project>`
 
 Audits all active issues against 12 rules derived from Benji's guide.
 
@@ -100,17 +100,25 @@ Audits all active issues against 12 rules derived from Benji's guide.
 - Top 3 recommendations
 
 **Tips:**
-- This is read-only — it never modifies issues
+- This is read-only - it never modifies issues
 - Run it before a planning session to identify cleanup work
 - LLM-judged rules (descriptions, titles) err on the side of not flagging
 
 ## Prerequisites
 
 - `linproj` CLI installed and authenticated (`linproj auth login`)
-- Claude Code with access to the `.claude/skills/` directory
+- The skills installed into your agent, which the CLI ships and writes for you:
+
+  ```bash
+  linproj skill --mode claude --force    # all skills, into ~/.claude/skills
+  linproj skill meeting-sync --mode claude
+  ```
+
+  `--mode` also accepts `claude-project`, `codex`, `universal`, and `github`.
+  Run `linproj skill` with no arguments to see the available skills.
 - Project names must match exactly what's in Linear (use `linproj projects list` to check)
 
 ## Reference
 
-- [Benji's guide to using Linear](benjis-guide-to-using-linear.md) — the conventions these skills enforce
-- [linproj CLI](../README.md) — the underlying tool
+- [Benji's guide to using Linear](benjis-guide-to-using-linear.md) - the conventions these skills enforce
+- [linproj CLI](../README.md) - the underlying tool
