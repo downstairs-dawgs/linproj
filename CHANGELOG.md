@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `projects update list <project>` - List past status updates for a project, with `--limit` and `--json`
 - `projects update edit <update-id>` - Revise the body and/or health of an existing update, with stdin support
+- `teams list` - List the workspace's teams as a KEY / NAME table, with `--json`
 
 `projects update` is now a subcommand group. `projects update <project>` continues to
 create an update, so existing usage is unchanged.
