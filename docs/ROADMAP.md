@@ -80,6 +80,8 @@ Manage Linear projects and cycles.
 
 - [x] `linproj projects list`
 - [x] `linproj projects update <project>` - Post status updates with health status
+- [x] `linproj projects update list <project>` - List past status updates
+- [x] `linproj projects update edit <update-id>` - Edit an existing status update
 - [ ] `linproj projects get <name>`
 - [ ] `linproj cycles list`
 - [ ] `linproj cycles current`

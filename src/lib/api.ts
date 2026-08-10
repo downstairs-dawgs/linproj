@@ -588,6 +588,11 @@ export interface CreateProjectUpdateInput {
   health?: ProjectHealth;
 }
 
+export interface UpdateProjectUpdateInput {
+  body?: string;
+  health?: ProjectHealth;
+}
+
 export interface IssueUpdateInput {
   title?: string;
   description?: string;
@@ -860,6 +865,98 @@ export async function createProjectUpdate(
   }
 
   return result.projectUpdateCreate.projectUpdate;
+}
+
+interface ProjectUpdatesResponse {
+  project: {
+    projectUpdates: {
+      nodes: ProjectUpdate[];
+    };
+  } | null;
+}
+
+export async function listProjectUpdates(
+  client: LinearClient,
+  projectId: string,
+  first = 10
+): Promise<ProjectUpdate[]> {
+  const query = `
+    query($projectId: String!, $first: Int!) {
+      project(id: $projectId) {
+        projectUpdates(first: $first, orderBy: createdAt) {
+          nodes {
+            id
+            body
+            health
+            url
+            createdAt
+            project {
+              id
+              name
+            }
+            user {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<ProjectUpdatesResponse>(query, {
+    projectId,
+    first,
+  });
+  if (!result.project) {
+    throw new LinearAPIError('Project not found');
+  }
+  return result.project.projectUpdates.nodes;
+}
+
+interface UpdateProjectUpdateResponse {
+  projectUpdateUpdate: {
+    success: boolean;
+    projectUpdate: ProjectUpdate;
+  };
+}
+
+export async function updateProjectUpdate(
+  client: LinearClient,
+  id: string,
+  input: UpdateProjectUpdateInput
+): Promise<ProjectUpdate> {
+  const mutation = `
+    mutation($id: String!, $input: ProjectUpdateUpdateInput!) {
+      projectUpdateUpdate(id: $id, input: $input) {
+        success
+        projectUpdate {
+          id
+          body
+          health
+          url
+          createdAt
+          project {
+            id
+            name
+          }
+          user {
+            id
+            name
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<UpdateProjectUpdateResponse>(mutation, {
+    id,
+    input,
+  });
+
+  if (!result.projectUpdateUpdate.success) {
+    throw new LinearAPIError('Failed to update project update');
+  }
+
+  return result.projectUpdateUpdate.projectUpdate;
 }
 
 // Comment operations

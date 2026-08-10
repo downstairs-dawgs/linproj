@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `projects update list <project>` - List past status updates for a project, with `--limit` and `--json`
+- `projects update edit <update-id>` - Revise the body and/or health of an existing update, with stdin support
+
+`projects update` is now a subcommand group. `projects update <project>` continues to
+create an update, so existing usage is unchanged.
+
 ## [0.7.0] - 2026-02-19
 
 ### Added
