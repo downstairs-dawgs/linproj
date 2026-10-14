@@ -4,10 +4,13 @@ import {
   LinearClient,
   getIssue,
   getComments,
+  getSubIssues,
   buildCommentTree,
   type Issue,
+  type SubIssue,
   type CommentNode,
 } from '../../lib/api.ts';
+import { padRight } from '../../lib/output.ts';
 import {
   countComments,
   printCommentTree,
@@ -38,8 +41,25 @@ function formatDate(isoDate: string): string {
 
 const DEFAULT_COMMENTS_LIMIT = 3;
 
+const CLOSED_STATE_TYPES = new Set(['completed', 'canceled', 'duplicate']);
+
+function printSubIssues(subIssues: SubIssue[]): void {
+  const open = subIssues.filter((s) => !CLOSED_STATE_TYPES.has(s.state.type)).length;
+  const idWidth = Math.max(...subIssues.map((s) => s.identifier.length));
+  const stateWidth = Math.max(...subIssues.map((s) => s.state.name.length));
+
+  console.log(`Sub-issues (${subIssues.length}, ${open} open):`);
+  for (const sub of subIssues) {
+    const assignee = sub.assignee ? `  (${sub.assignee.name})` : '';
+    console.log(
+      `  ${padRight(sub.identifier, idWidth)}  ${padRight(sub.state.name, stateWidth)}  ${sub.title}${assignee}`
+    );
+  }
+}
+
 function printIssueDetails(
   issue: Issue,
+  subIssues: SubIssue[],
   commentTree?: CommentNode[],
   options?: { raw?: boolean }
 ): void {
@@ -65,6 +85,10 @@ function printIssueDetails(
     console.log(`Project:   ${issue.project.name}`);
   }
 
+  if (issue.parent) {
+    console.log(`Parent:    ${issue.parent.identifier}`);
+  }
+
   console.log(`Created:   ${formatDate(issue.createdAt)}`);
   console.log(`Updated:   ${formatDate(issue.updatedAt)}`);
 
@@ -76,6 +100,11 @@ function printIssueDetails(
     } else {
       console.log(renderMarkdown(issue.description));
     }
+  }
+
+  if (subIssues.length > 0) {
+    console.log();
+    printSubIssues(subIssues);
   }
 
   console.log();
@@ -134,13 +163,15 @@ function getFieldValue(issue: Issue, field: string): string {
       return issue.labels?.nodes.map((l) => l.name).join(',') ?? '';
     case 'project':
       return issue.project?.name ?? '';
+    case 'parent':
+      return issue.parent?.identifier ?? '';
     case 'created':
       return issue.createdAt;
     case 'updated':
       return issue.updatedAt;
     default:
       throw new Error(
-        `Unknown field '${field}'. Valid fields: id, identifier, title, description, url, state, state-type, priority, team, assignee, labels, project, created, updated`
+        `Unknown field '${field}'. Valid fields: id, identifier, title, description, url, state, state-type, priority, team, assignee, labels, project, parent, created, updated`
       );
   }
 }
@@ -189,6 +220,8 @@ export function createGetCommand(): Command {
         return;
       }
 
+      const subIssues = await getSubIssues(client, identifier);
+
       // Fetch comments unless --no-comments is set (comments defaults to true)
       let commentTree: CommentNode[] | undefined;
       if (options.comments !== false) {
@@ -199,7 +232,7 @@ export function createGetCommand(): Command {
       }
 
       if (options.json) {
-        const output: Record<string, unknown> = { ...issue };
+        const output: Record<string, unknown> = { ...issue, subIssues };
         if (commentTree !== undefined) {
           // Apply truncation for JSON output too
           const displayedTree = commentTree.slice(0, DEFAULT_COMMENTS_LIMIT);
@@ -210,6 +243,6 @@ export function createGetCommand(): Command {
         return;
       }
 
-      printIssueDetails(issue, commentTree, { raw: options.raw });
+      printIssueDetails(issue, subIssues, commentTree, { raw: options.raw });
     });
 }

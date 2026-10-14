@@ -439,6 +439,54 @@ export async function getIssue(
   }
 }
 
+export interface SubIssue {
+  identifier: string;
+  title: string;
+  state: IssueState;
+  assignee?: {
+    name: string;
+    email: string;
+  };
+}
+
+interface SubIssuesResponse {
+  issue: {
+    children: {
+      nodes: SubIssue[];
+    };
+  };
+}
+
+export async function getSubIssues(
+  client: LinearClient,
+  identifier: string
+): Promise<SubIssue[]> {
+  const query = `
+    query($identifier: String!) {
+      issue(id: $identifier) {
+        children(first: 250) {
+          nodes {
+            identifier
+            title
+            state {
+              name
+              type
+            }
+            assignee {
+              name
+              email
+            }
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<SubIssuesResponse>(query, {
+    identifier: normalizeIssueIdentifier(identifier),
+  });
+  return result.issue.children.nodes;
+}
+
 export async function listIssues(
   client: LinearClient,
   filter?: IssueFilter,
