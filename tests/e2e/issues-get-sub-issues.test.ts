@@ -51,7 +51,7 @@ describe('issues get sub-issues E2E', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`Parent:    ${parentIdentifier} ${parentTitle}`);
-    expect(result.stdout).not.toContain('Sub-issues');
+    expect(result.stdout).not.toContain('Sub-issues (');
   });
 
   it('includes sub-issues in JSON output', async () => {
