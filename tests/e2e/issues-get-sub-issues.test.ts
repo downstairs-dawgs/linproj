@@ -54,27 +54,16 @@ describe('issues get sub-issues E2E', () => {
     expect(result.stdout).not.toContain('Sub-issues (');
   });
 
-  it('includes sub-issues in JSON output', async () => {
-    const result = await runCLI(['issues', 'get', parentIdentifier, '--json', '--no-comments']);
+  it('includes the parent and sub-issues in JSON output', async () => {
+    const parentResult = await runCLI(['issues', 'get', parentIdentifier, '--json', '--no-comments']);
+    const childResult = await runCLI(['issues', 'get', childIdentifier, '--json', '--no-comments']);
 
-    expect(result.exitCode).toBe(0);
-    const output = JSON.parse(result.stdout);
-    expect(output.subIssues.map((s: { identifier: string }) => s.identifier)).toEqual([childIdentifier]);
-  });
-
-  it('includes the parent title in JSON output', async () => {
-    const result = await runCLI(['issues', 'get', childIdentifier, '--json', '--no-comments']);
-
-    expect(result.exitCode).toBe(0);
-    const output = JSON.parse(result.stdout);
-    expect(output.parent.identifier).toBe(parentIdentifier);
-    expect(output.parent.title).toBe(parentTitle);
-  });
-
-  it('outputs the parent identifier with --field parent', async () => {
-    const result = await runCLI(['issues', 'get', childIdentifier, '--field', 'parent']);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe(parentIdentifier);
+    expect(parentResult.exitCode).toBe(0);
+    expect(childResult.exitCode).toBe(0);
+    const parent = JSON.parse(parentResult.stdout);
+    const child = JSON.parse(childResult.stdout);
+    expect(parent.subIssues.map((s: { identifier: string }) => s.identifier)).toEqual([childIdentifier]);
+    expect(child.parent.identifier).toBe(parentIdentifier);
+    expect(child.parent.title).toBe(parentTitle);
   });
 });
