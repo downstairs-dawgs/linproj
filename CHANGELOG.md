@@ -7,25 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `projects update list <project>` - List past status updates for a project, with `--limit` and `--json`
-- `projects update edit <update-id>` - Revise the body and/or health of an existing update, with stdin support
-- `teams list` - List the workspace's teams as a KEY / NAME table, with `--json`
-- `--parent <identifier>` flag on `issues edit` to move an issue under a parent, or `none` to remove it
-- `--parent <identifier>` flag on `issues list` to list an issue's sub-issues
-- `--project`, `--state`, `--label`, and `--assignee` flags on `issues create`
-- `issues get` shows the parent's identifier and title and lists sub-issues with their state, title, and assignee, including in `--json`
-
-`projects update` is now a subcommand group. `projects update <project>` continues to
-create an update, so existing usage is unchanged.
-
-## [0.7.0] - 2026-02-19
+## [0.8.0] - 2026-10-13
 
 ### Added
 
 - `--parent <identifier>` flag on `issues create` to create sub-issues in a single command
-- Success message now distinguishes between issues and sub-issues
+- `--parent <identifier>` flag on `issues edit` to move an issue under a parent, or `none` to remove it
+- `--parent <identifier>` flag on `issues list` to list an issue's sub-issues
+- `--project`, `--state`, `--label`, and `--assignee` flags on `issues create`
+- `issues get` shows the parent's identifier and title and lists sub-issues with their state, title, and assignee, including in `--json`
+- `projects update list <project>` - List past status updates for a project, with `--limit` and `--json`
+- `projects update edit <update-id>` - Revise the body and/or health of an existing update, with stdin support
+- `teams list` - List the workspace's teams as a KEY / NAME table, with `--json`
+- `skill` lists, prints, and installs five bundled skills: `linear`, `meeting-sync`, `weekly-prep`, `weekly-update`, and `lint-project`
+- Linear issue URLs are accepted anywhere an issue identifier is
+
+### Changed
+
+- `projects update` is now a subcommand group. `projects update <project>` continues to
+  create an update, so existing usage is unchanged.
+- `issues create` says whether it created an issue or a sub-issue
+
+### Fixed
+
+- `projects list` no longer stops at 50 projects
 
 ## [0.6.0] - 2026-02-01
 
@@ -152,7 +157,7 @@ Resolved threads collapse to a compact preview:
 - `issues create` command with team selection, priority, and assignment
 - API key authentication
 
-[0.7.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.6.0...v0.7.0
+[0.8.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.6.0...v0.8.0
 [0.6.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/downstairs-dawgs/linproj/compare/v0.4.0...v0.5.0
 [0.3.1]: https://github.com/downstairs-dawgs/linproj/compare/v0.3.0...v0.3.1
