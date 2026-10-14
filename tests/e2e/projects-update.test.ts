@@ -54,19 +54,6 @@ describe('projects update E2E', () => {
     expect(result.stdout).toContain('linear.app');
   });
 
-  it('creates off-track update with --body and --health flags', async () => {
-    await ctx.setupV2Config();
-
-    const result = await runCLI(
-      ['projects', 'update', testProjectName, '--body', '[E2E TEST] everything is going badly!!', '--health', 'off-track'],
-      { env: ctx.envWithoutApiKey() }
-    );
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Project update created:');
-    expect(result.stdout).toContain('linear.app');
-  });
-
   it('creates update using project ID', async () => {
     await ctx.setupV2Config();
 

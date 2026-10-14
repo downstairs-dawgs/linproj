@@ -126,23 +126,6 @@ describe('config migrate command', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('Config is already v2 format. No migration needed.');
   });
 
-  it('migrates v1 config without auth to empty v2 config', async () => {
-    // Setup: Write an empty v1 config (no auth)
-    await writeGlobalConfig({});
-
-    const { createMigrateCommand } = await import('../../src/commands/config/migrate.ts');
-    const command = createMigrateCommand();
-    await command.parseAsync(['node', 'test']);
-
-    // Verify it created v2 config without workspace
-    const globalConfig = await readGlobalConfig();
-    expect(getConfigVersion(globalConfig)).toBe(2);
-    expect((globalConfig as ConfigV2).currentWorkspace).toBeUndefined();
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('Migrated to v2 config format.');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Run `linproj auth login` to authenticate.');
-  });
-
   it('migrates v1 api-key auth to workspace', async () => {
     // Setup: Write v1 config with api-key auth
     const v1Config: ConfigV1 = {

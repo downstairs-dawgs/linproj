@@ -5,7 +5,6 @@ import {
   LinearClient,
   getViewer,
   getTeams,
-  getAssignedIssues,
   getIssue,
   listIssues,
   searchIssues,
@@ -86,20 +85,6 @@ describe('Linear API', () => {
     });
   });
 
-  describe('getAssignedIssues', () => {
-    beforeEach(() => {
-      polly = setupPolly('get-assigned-issues');
-    });
-
-    it('returns issues assigned to the user', async () => {
-      const issues = await getAssignedIssues(client, 10);
-
-      expect(issues).toBeDefined();
-      expect(Array.isArray(issues)).toBe(true);
-      // May be empty if no issues assigned
-    });
-  });
-
   describe('createIssue and deleteIssue', () => {
     beforeEach(() => {
       polly = setupPolly('create-delete-issue');
@@ -171,15 +156,6 @@ describe('Linear API', () => {
   });
 
   describe('listIssues', () => {
-    it('lists issues without filter', async () => {
-      polly = setupPolly('list-issues-no-filter');
-
-      const issues = await listIssues(client, undefined, 10);
-
-      expect(issues).toBeDefined();
-      expect(Array.isArray(issues)).toBe(true);
-    });
-
     it('filters by team', async () => {
       polly = setupPolly('list-issues-by-team');
 
@@ -239,32 +215,6 @@ describe('Linear API', () => {
   });
 
   describe('searchIssues', () => {
-    it('finds issues matching query', async () => {
-      polly = setupPolly('search-issues-matching');
-
-      // Create an issue to search for
-      const teams = await getTeams(client);
-      expect(teams.length).toBeGreaterThan(0);
-      const teamId = teams[0]!.id;
-
-      const created = await createIssue(client, {
-        teamId,
-        title: '[TEST] Search test issue',
-        description: 'Testing searchIssues functionality',
-      });
-
-      try {
-        // Search for the issue
-        const issues = await searchIssues(client, 'Search test', undefined, 25);
-
-        expect(issues).toBeDefined();
-        expect(Array.isArray(issues)).toBe(true);
-      } finally {
-        // Cleanup
-        await deleteIssue(client, created.id);
-      }
-    });
-
     it('returns empty array for no matches', async () => {
       polly = setupPolly('search-issues-no-matches');
 

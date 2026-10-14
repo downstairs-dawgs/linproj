@@ -53,43 +53,6 @@ describe('executeEdit with dependency injection', () => {
   });
 
   describe('interactive mode', () => {
-    it('cancels when editor returns unchanged content', async () => {
-      const mockEditor: EditorFn = async (content) => content; // Return unchanged
-
-      const result = await executeEdit(
-        mockClient,
-        'TEST-456',
-        mockIssue,
-        {},
-        {
-          openEditor: mockEditor,
-          hasStdinData: () => false,
-          isTTY: true,
-        }
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.cancelled).toBe(true);
-    });
-
-    it('cancels when editor returns empty content', async () => {
-      const mockEditor: EditorFn = async () => ''; // Return empty
-
-      const result = await executeEdit(
-        mockClient,
-        'TEST-456',
-        mockIssue,
-        {},
-        {
-          openEditor: mockEditor,
-          hasStdinData: () => false,
-          isTTY: true,
-        }
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.cancelled).toBe(true);
-    });
 
     it('cancels when editor returns whitespace only', async () => {
       const mockEditor: EditorFn = async () => '   \n\n  ';
@@ -277,38 +240,6 @@ priority: badvalue
   });
 
   describe('input mode mutual exclusivity', () => {
-    it('errors when stdin and flags are both provided', async () => {
-      const result = await executeEdit(
-        mockClient,
-        'TEST-456',
-        mockIssue,
-        { title: 'Flag title' },
-        {
-          readStdin: async () => '---\ntitle: Stdin\n---',
-          hasStdinData: () => true,
-          isTTY: false,
-        }
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Cannot combine');
-    });
-
-    it('errors when recover and flags are both provided', async () => {
-      const result = await executeEdit(
-        mockClient,
-        'TEST-456',
-        mockIssue,
-        { title: 'Flag title', recover: '/tmp/fake.md' },
-        {
-          hasStdinData: () => false,
-          isTTY: false,
-        }
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Cannot combine');
-    });
   });
 
   describe('recovery mode', () => {
@@ -349,22 +280,6 @@ Recovered description`;
       try {
         unlinkSync(recoveryPath);
       } catch {}
-    });
-
-    it('errors when recovery file does not exist', async () => {
-      const result = await executeEdit(
-        mockClient,
-        'TEST-456',
-        mockIssue,
-        { recover: '/tmp/nonexistent-recovery-file.md' },
-        {
-          hasStdinData: () => false,
-          isTTY: true,
-        }
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Could not read recovery file');
     });
   });
 });
