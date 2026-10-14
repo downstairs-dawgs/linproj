@@ -17,6 +17,7 @@ linproj issues list                    # List issues (uses default team)
 linproj issues list -a me              # My assigned issues
 linproj issues list --state-type started   # In-progress issues
 linproj issues list -t ENG             # Specific team
+linproj issues list --parent ENG-100   # Sub-issues of an issue
 ```
 
 ### Search issues
@@ -27,7 +28,7 @@ linproj issues search "auth" -t ENG    # Search within team
 
 ### Get issue details
 ```bash
-linproj issues get ENG-123             # Full details
+linproj issues get ENG-123             # Full details; lists parent and sub-issue IDs
 linproj issues get ENG-123 --json      # JSON for parsing
 ```
 
@@ -35,6 +36,8 @@ linproj issues get ENG-123 --json      # JSON for parsing
 ```bash
 linproj issues create --title "Title" -a    # Create and assign to me
 linproj issues create --title "Bug" -p 1    # With urgent priority
+linproj issues create --title "Task" --parent ENG-100   # Sub-issue, in the parent's project
+linproj issues create --title "Bug" --project "Q1 Goals" --state Todo --label bug --assignee me
 ```
 
 ### Quick state changes
@@ -49,6 +52,7 @@ linproj issues edit ENG-123 --state "In Review"
 linproj issues edit ENG-123 --assignee me
 linproj issues edit ENG-123 --priority high
 linproj issues edit ENG-123 --label bug --label backend
+linproj issues edit ENG-123 --parent ENG-100   # Make it a sub-issue (none removes it)
 ```
 
 ### Edit with description (via stdin)
