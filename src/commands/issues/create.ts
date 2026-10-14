@@ -3,10 +3,19 @@ import { getAuthContext } from '../../lib/config.ts';
 import {
   LinearClient,
   getTeams,
-  getViewer,
   getIssue,
   createIssue,
 } from '../../lib/api.ts';
+import {
+  resolveAssignee,
+  resolveLabels,
+  resolveProject,
+  resolveState,
+} from '../../lib/resolve.ts';
+
+function collect(value: string, previous: string[] = []): string[] {
+  return previous.concat([value]);
+}
 
 async function promptSelection(
   prompt: string,
@@ -113,8 +122,12 @@ interface CreateOptions {
   title?: string;
   description?: string;
   assignToMe?: boolean;
+  assignee?: string;
   priority?: string;
   parent?: string;
+  project?: string;
+  state?: string;
+  label?: string[];
   workspace?: string;
 }
 
@@ -125,11 +138,15 @@ export function createCreateCommand(): Command {
     .option('--title <title>', 'Issue title')
     .option('-d, --description <description>', 'Issue description')
     .option('-a, --assign-to-me', 'Assign the issue to yourself')
+    .option('--assignee <assignee>', 'Assignee: email or "me"')
     .option(
       '-p, --priority <priority>',
       'Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low'
     )
     .option('--parent <identifier>', 'Parent issue identifier (creates a sub-issue)')
+    .option('--project <project>', "Project name (defaults to the parent's project)")
+    .option('--state <state>', 'State name')
+    .option('--label <label>', 'Label (repeatable)', collect)
     .option('-w, --workspace <name>', 'Use a different workspace')
     .action(async (options: CreateOptions) => {
       let ctx;
@@ -181,11 +198,9 @@ export function createCreateCommand(): Command {
         }
       }
 
-      // Get assignee if requested
-      let assigneeId: string | undefined;
-      if (options.assignToMe) {
-        const viewer = await getViewer(client);
-        assigneeId = viewer.id;
+      if (options.assignToMe && options.assignee) {
+        console.error('Error: Use either --assign-to-me or --assignee, not both');
+        process.exit(1);
       }
 
       // Parse priority
@@ -210,6 +225,28 @@ export function createCreateCommand(): Command {
         projectId = parentIssue.project?.id;
       }
 
+      let assigneeId: string | undefined;
+      let stateId: string | undefined;
+      let labelIds: string[] | undefined;
+      try {
+        const assignee = options.assignToMe ? 'me' : options.assignee;
+        if (assignee) {
+          assigneeId = (await resolveAssignee(client, assignee)) ?? undefined;
+        }
+        if (options.project) {
+          projectId = (await resolveProject(client, options.project)) ?? undefined;
+        }
+        if (options.state) {
+          stateId = await resolveState(client, teamId, options.state);
+        }
+        if (options.label) {
+          labelIds = await resolveLabels(client, teamId, options.label);
+        }
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+
       const issue = await createIssue(client, {
         teamId,
         title: title.trim(),
@@ -218,6 +255,8 @@ export function createCreateCommand(): Command {
         assigneeId,
         parentId,
         projectId,
+        stateId,
+        labelIds,
       });
 
       if (options.parent) {

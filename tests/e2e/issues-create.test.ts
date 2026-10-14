@@ -9,7 +9,13 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { join } from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { E2ETestContext, runCLI } from './harness.ts';
-import { getIssue } from '../../src/lib/api.ts';
+import {
+  createLabel,
+  deleteLabel,
+  getIssue,
+  getViewer,
+  getWorkflowStates,
+} from '../../src/lib/api.ts';
 
 describe('issues create E2E', () => {
   const ctx = new E2ETestContext();
@@ -149,6 +155,59 @@ describe('issues create E2E', () => {
     const childIssue = await getIssue(client, childIdentifier);
     expect(childIssue).not.toBeNull();
     expect(childIssue!.parent?.identifier).toBe(parentIdentifier);
+  });
+
+  it('sets state, labels and assignee with --state, --label and --assignee', async () => {
+    const testTeam = teams[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key });
+
+    const client = await ctx.getLinearClient();
+    const states = await getWorkflowStates(client, testTeam.id);
+    const state = states.find((s) => s.type === 'started')!;
+    const label = await createLabel(client, { teamId: testTeam.id, name: `test-create-${Date.now()}` });
+
+    try {
+      const result = await runCLI(
+        [
+          'issues',
+          'create',
+          '--title',
+          `[TEST] Create with fields ${Date.now()}`,
+          '--state',
+          state.name,
+          '--label',
+          label.name,
+          '--assignee',
+          'me',
+        ],
+        { env: ctx.envWithoutApiKey() }
+      );
+
+      expect(result.exitCode).toBe(0);
+      const identifier = result.stdout.match(/([A-Z]+-\d+):/)![1]!;
+      ctx.trackCreatedIssue(identifier);
+
+      const issue = await getIssue(client, identifier);
+      const viewer = await getViewer(client);
+      expect(issue!.state.name).toBe(state.name);
+      expect(issue!.labels!.nodes.map((l) => l.name)).toEqual([label.name]);
+      expect(issue!.assignee?.id).toBe(viewer.id);
+    } finally {
+      await deleteLabel(client, label.id);
+    }
+  });
+
+  it('rejects an unknown state before creating the issue', async () => {
+    const testTeam = teams[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key });
+
+    const result = await runCLI(
+      ['issues', 'create', '--title', '[TEST] Should fail', '--state', 'No Such State'],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("State 'No Such State' not found");
   });
 
   it('fails when no team specified, no default, and no TTY', async () => {

@@ -231,6 +231,8 @@ export interface CreateIssueInput {
   assigneeId?: string;
   parentId?: string;
   projectId?: string;
+  stateId?: string;
+  labelIds?: string[];
 }
 
 // Convenience methods
@@ -335,6 +337,8 @@ export async function createIssue(
       assigneeId: input.assigneeId,
       parentId: input.parentId,
       projectId: input.projectId,
+      stateId: input.stateId,
+      labelIds: input.labelIds,
     },
   });
 
