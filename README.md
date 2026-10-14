@@ -58,11 +58,12 @@ linproj issues list --state-type started        # In-progress issues
 linproj issues list -s "In Review"              # By state name
 linproj issues list -l bug -l urgent            # By labels
 linproj issues list --priority high             # By priority
+linproj issues list --parent ENG-100            # Sub-issues of an issue
 linproj issues list --json                      # JSON output
 linproj issues search "login bug" -t ENG        # Full-text search
 
 # Get single issue
-linproj issues get ENG-123                      # Show issue details
+linproj issues get ENG-123                      # Show issue details, with its parent and sub-issues
 linproj issues get ENG-123 --json               # JSON output
 linproj issues get ENG-123 --field url          # Single field (for scripting)
 
@@ -70,6 +71,8 @@ linproj issues get ENG-123 --field url          # Single field (for scripting)
 linproj issues create -t ENG --title "Bug"      # Create issue
 linproj issues create --title "Bug" -a          # Create and assign to me
 linproj issues create -p 1                      # With priority (1=urgent)
+linproj issues create --title "Bug" --parent ENG-100   # Sub-issue, in the parent's project
+linproj issues create --title "Bug" --project "Q1 Goals" --state Todo --label bug --assignee me
 
 # Quick state changes
 linproj issues start ENG-123                    # Move to "started" state
@@ -82,6 +85,8 @@ linproj issues edit ENG-123 --assignee none
 linproj issues edit ENG-123 --priority urgent
 linproj issues edit ENG-123 --label bug --label backend
 linproj issues edit ENG-123 --team PLATFORM     # Move to different team
+linproj issues edit ENG-123 --parent ENG-100    # Make it a sub-issue
+linproj issues edit ENG-123 --parent none       # Remove its parent
 
 # Edit interactively (opens $EDITOR)
 linproj issues edit ENG-123

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'bun:test';
 import { E2ETestContext, runCLI } from './harness.ts';
+import { createIssue } from '../../src/lib/api.ts';
 
 describe('issues list E2E', () => {
   const ctx = new E2ETestContext();
@@ -71,5 +72,28 @@ describe('issues list E2E', () => {
 
     // List command doesn't require a team - it lists across all teams
     expect(result.exitCode).toBe(0);
+  });
+
+  it('--parent lists sub-issues in other teams than the default team', async () => {
+    const defaultTeam = teams[0]!;
+    const otherTeam = teams[1]!;
+    await ctx.setupV2Config({ defaultTeam: defaultTeam.key });
+
+    const client = await ctx.getLinearClient();
+    const parent = await ctx.createTestIssue(defaultTeam.id, `[TEST] List parent ${Date.now()}`);
+    const child = await createIssue(client, {
+      teamId: otherTeam.id,
+      title: `[TEST] List child ${Date.now()}`,
+      parentId: parent.id,
+    });
+    ctx.trackCreatedIssue(child.identifier);
+
+    const result = await runCLI(['issues', 'list', '--parent', parent.identifier, '--json'], {
+      env: ctx.envWithoutApiKey(),
+    });
+
+    expect(result.exitCode).toBe(0);
+    const issues = JSON.parse(result.stdout);
+    expect(issues.map((i: { identifier: string }) => i.identifier)).toEqual([child.identifier]);
   });
 });

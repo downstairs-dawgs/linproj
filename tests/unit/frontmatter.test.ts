@@ -210,6 +210,7 @@ project: 'Q1 Goals'
 team: ENG
 dueDate: '2026-03-01'
 estimate: 3
+parent: ENG-100
 ---
 
 Full description here.`;
@@ -225,6 +226,7 @@ Full description here.`;
       team: 'ENG',
       dueDate: '2026-03-01',
       estimate: 3,
+      parent: 'ENG-100',
     });
     expect(result.description).toBe('Full description here.');
   });
@@ -321,6 +323,19 @@ describe('renderFrontmatter', () => {
     const result = renderFrontmatter(issue);
 
     expect(result).not.toContain('project:');
+  });
+
+  it('renders the parent issue identifier', () => {
+    const issue = { ...baseIssue, parent: { id: 'issue-0', identifier: 'PROJ-100' } };
+    const result = renderFrontmatter(issue);
+
+    expect(result).toContain('parent: PROJ-100');
+  });
+
+  it('renders issue without parent', () => {
+    const result = renderFrontmatter(baseIssue);
+
+    expect(result).not.toContain('parent:');
   });
 
   it('renders issue without description', () => {

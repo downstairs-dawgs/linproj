@@ -16,6 +16,7 @@ export interface EditFields {
   team?: string;
   dueDate?: 'none' | string;
   estimate?: number;
+  parent?: 'none' | string;
 }
 
 const ALLOWED_FIELDS = new Set([
@@ -28,6 +29,7 @@ const ALLOWED_FIELDS = new Set([
   'team',
   'dueDate',
   'estimate',
+  'parent',
 ]);
 
 const VALID_PRIORITIES = new Set(['none', 'urgent', 'high', 'medium', 'low']);
@@ -161,6 +163,12 @@ function validateField(key: string, value: unknown): void {
       }
       break;
 
+    case 'parent':
+      if (typeof value !== 'string') {
+        throw new FrontmatterError(`Field 'parent' must be a string`);
+      }
+      break;
+
     case 'team':
       if (typeof value !== 'string') {
         throw new FrontmatterError(`Field 'team' must be a string`);
@@ -233,6 +241,10 @@ export function renderFrontmatter(issue: Issue): string {
 
   if (issue.project) {
     lines.push(`project: '${escapeYamlString(issue.project.name)}'`);
+  }
+
+  if (issue.parent) {
+    lines.push(`parent: ${issue.parent.identifier}`);
   }
 
   lines.push('---');

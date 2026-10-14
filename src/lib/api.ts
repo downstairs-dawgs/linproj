@@ -157,6 +157,7 @@ export interface IssueFilter {
   project?: { name?: { eq: string } };
   labels?: { name?: { in: string[] } };
   priority?: { eq?: number; in?: number[] };
+  parent?: { id: { eq: string } };
 }
 
 export interface Team {
@@ -230,6 +231,8 @@ export interface CreateIssueInput {
   assigneeId?: string;
   parentId?: string;
   projectId?: string;
+  stateId?: string;
+  labelIds?: string[];
 }
 
 // Convenience methods
@@ -334,6 +337,8 @@ export async function createIssue(
       assigneeId: input.assigneeId,
       parentId: input.parentId,
       projectId: input.projectId,
+      stateId: input.stateId,
+      labelIds: input.labelIds,
     },
   });
 
@@ -437,6 +442,64 @@ export async function getIssue(
     }
     throw err;
   }
+}
+
+export interface SubIssue {
+  identifier: string;
+  title: string;
+  state: IssueState;
+  assignee?: {
+    name: string;
+    email: string;
+  };
+}
+
+export interface IssueHierarchy {
+  parent: { identifier: string; title: string } | null;
+  subIssues: SubIssue[];
+}
+
+interface IssueHierarchyResponse {
+  issue: {
+    parent: { identifier: string; title: string } | null;
+    children: {
+      nodes: SubIssue[];
+    };
+  };
+}
+
+export async function getIssueHierarchy(
+  client: LinearClient,
+  identifier: string
+): Promise<IssueHierarchy> {
+  const query = `
+    query($identifier: String!) {
+      issue(id: $identifier) {
+        parent {
+          identifier
+          title
+        }
+        children(first: 250) {
+          nodes {
+            identifier
+            title
+            state {
+              name
+              type
+            }
+            assignee {
+              name
+              email
+            }
+          }
+        }
+      }
+    }
+  `;
+  const result = await client.query<IssueHierarchyResponse>(query, {
+    identifier: normalizeIssueIdentifier(identifier),
+  });
+  return { parent: result.issue.parent, subIssues: result.issue.children.nodes };
 }
 
 export async function listIssues(
@@ -604,6 +667,7 @@ export interface IssueUpdateInput {
   teamId?: string;
   dueDate?: string | null;
   estimate?: number;
+  parentId?: string | null;
 }
 
 export interface UpdateIssueResponse {
