@@ -157,6 +157,7 @@ export interface IssueFilter {
   project?: { name?: { eq: string } };
   labels?: { name?: { in: string[] } };
   priority?: { eq?: number; in?: number[] };
+  parent?: { id: { eq: string } };
 }
 
 export interface Team {

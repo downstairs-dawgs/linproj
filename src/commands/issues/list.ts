@@ -4,6 +4,7 @@ import {
   LinearClient,
   listIssues,
   getViewer,
+  normalizeIssueIdentifier,
   type IssueFilter,
   type StateType,
 } from '../../lib/api.ts';
@@ -18,6 +19,7 @@ interface ListOptions {
   project?: string;
   label?: string[];
   priority?: string;
+  parent?: string;
   limit?: string;
   json?: boolean;
   workspace?: string;
@@ -33,6 +35,7 @@ export function createListCommand(): Command {
     .option('-p, --project <project>', 'Filter by project name')
     .option('-l, --label <label...>', 'Filter by label(s)')
     .option('--priority <priority>', 'Filter by priority (urgent, high, medium, low, none, or 0-4)')
+    .option('--parent <identifier>', 'Filter by parent issue (lists its sub-issues)')
     .option('-n, --limit <number>', 'Maximum number of issues to show', '50')
     .option('--json', 'Output as JSON')
     .option('-w, --workspace <name>', 'Use a different workspace')
@@ -54,7 +57,8 @@ export function createListCommand(): Command {
       const client = new LinearClient(ctx.auth);
 
       const filter: IssueFilter = {};
-      const teamKey = options.team ?? ctx.defaultTeam;
+      // Sub-issues can sit in other teams, so --parent skips the default team
+      const teamKey = options.team ?? (options.parent ? undefined : ctx.defaultTeam);
       if (teamKey) {
         filter.team = { key: { eq: teamKey } };
       }
@@ -90,6 +94,10 @@ export function createListCommand(): Command {
 
       if (options.label && options.label.length > 0) {
         filter.labels = { name: { in: options.label } };
+      }
+
+      if (options.parent) {
+        filter.parent = { id: { eq: normalizeIssueIdentifier(options.parent) } };
       }
 
       if (options.priority) {
