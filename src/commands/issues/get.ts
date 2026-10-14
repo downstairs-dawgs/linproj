@@ -4,10 +4,11 @@ import {
   LinearClient,
   getIssue,
   getComments,
-  getSubIssues,
+  getIssueHierarchy,
   buildCommentTree,
   type Issue,
   type SubIssue,
+  type IssueHierarchy,
   type CommentNode,
 } from '../../lib/api.ts';
 import { padRight } from '../../lib/output.ts';
@@ -59,7 +60,7 @@ function printSubIssues(subIssues: SubIssue[]): void {
 
 function printIssueDetails(
   issue: Issue,
-  subIssues: SubIssue[],
+  hierarchy: IssueHierarchy,
   commentTree?: CommentNode[],
   options?: { raw?: boolean }
 ): void {
@@ -85,8 +86,8 @@ function printIssueDetails(
     console.log(`Project:   ${issue.project.name}`);
   }
 
-  if (issue.parent) {
-    console.log(`Parent:    ${issue.parent.identifier}`);
+  if (hierarchy.parent) {
+    console.log(`Parent:    ${hierarchy.parent.identifier} ${hierarchy.parent.title}`);
   }
 
   console.log(`Created:   ${formatDate(issue.createdAt)}`);
@@ -102,9 +103,9 @@ function printIssueDetails(
     }
   }
 
-  if (subIssues.length > 0) {
+  if (hierarchy.subIssues.length > 0) {
     console.log();
-    printSubIssues(subIssues);
+    printSubIssues(hierarchy.subIssues);
   }
 
   console.log();
@@ -220,7 +221,7 @@ export function createGetCommand(): Command {
         return;
       }
 
-      const subIssues = await getSubIssues(client, identifier);
+      const hierarchy = await getIssueHierarchy(client, identifier);
 
       // Fetch comments unless --no-comments is set (comments defaults to true)
       let commentTree: CommentNode[] | undefined;
@@ -232,7 +233,11 @@ export function createGetCommand(): Command {
       }
 
       if (options.json) {
-        const output: Record<string, unknown> = { ...issue, subIssues };
+        const output: Record<string, unknown> = {
+          ...issue,
+          parent: issue.parent && { ...issue.parent, title: hierarchy.parent?.title },
+          subIssues: hierarchy.subIssues,
+        };
         if (commentTree !== undefined) {
           // Apply truncation for JSON output too
           const displayedTree = commentTree.slice(0, DEFAULT_COMMENTS_LIMIT);
@@ -243,6 +248,6 @@ export function createGetCommand(): Command {
         return;
       }
 
-      printIssueDetails(issue, subIssues, commentTree, { raw: options.raw });
+      printIssueDetails(issue, hierarchy, commentTree, { raw: options.raw });
     });
 }

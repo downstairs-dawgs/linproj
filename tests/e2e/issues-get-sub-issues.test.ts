@@ -11,6 +11,7 @@ import { createIssue } from '../../src/lib/api.ts';
 describe('issues get sub-issues E2E', () => {
   const ctx = new E2ETestContext();
   let parentIdentifier: string;
+  let parentTitle: string;
   let childIdentifier: string;
 
   beforeAll(async () => {
@@ -20,7 +21,8 @@ describe('issues get sub-issues E2E', () => {
     const client = await ctx.getLinearClient();
     const team = (await ctx.getTeams())[0]!;
 
-    const parent = await ctx.createTestIssue(team.id, `[TEST] Sub-issues parent ${Date.now()}`);
+    parentTitle = `[TEST] Sub-issues parent ${Date.now()}`;
+    const parent = await ctx.createTestIssue(team.id, parentTitle);
     parentIdentifier = parent.identifier;
 
     const child = await createIssue(client, {
@@ -44,11 +46,11 @@ describe('issues get sub-issues E2E', () => {
     expect(result.stdout).toContain(childIdentifier);
   });
 
-  it('shows the parent of a sub-issue', async () => {
+  it('shows the parent of a sub-issue with its title', async () => {
     const result = await runCLI(['issues', 'get', childIdentifier, '--no-comments']);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(`Parent:    ${parentIdentifier}`);
+    expect(result.stdout).toContain(`Parent:    ${parentIdentifier} ${parentTitle}`);
     expect(result.stdout).not.toContain('Sub-issues');
   });
 
@@ -58,6 +60,15 @@ describe('issues get sub-issues E2E', () => {
     expect(result.exitCode).toBe(0);
     const output = JSON.parse(result.stdout);
     expect(output.subIssues.map((s: { identifier: string }) => s.identifier)).toEqual([childIdentifier]);
+  });
+
+  it('includes the parent title in JSON output', async () => {
+    const result = await runCLI(['issues', 'get', childIdentifier, '--json', '--no-comments']);
+
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.parent.identifier).toBe(parentIdentifier);
+    expect(output.parent.title).toBe(parentTitle);
   });
 
   it('outputs the parent identifier with --field parent', async () => {

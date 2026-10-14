@@ -63,7 +63,7 @@ linproj issues list --json                      # JSON output
 linproj issues search "login bug" -t ENG        # Full-text search
 
 # Get single issue
-linproj issues get ENG-123                      # Show issue details; lists parent and sub-issue IDs
+linproj issues get ENG-123                      # Show issue details, with its parent and sub-issues
 linproj issues get ENG-123 --json               # JSON output
 linproj issues get ENG-123 --field url          # Single field (for scripting)
 

@@ -454,21 +454,31 @@ export interface SubIssue {
   };
 }
 
-interface SubIssuesResponse {
+export interface IssueHierarchy {
+  parent: { identifier: string; title: string } | null;
+  subIssues: SubIssue[];
+}
+
+interface IssueHierarchyResponse {
   issue: {
+    parent: { identifier: string; title: string } | null;
     children: {
       nodes: SubIssue[];
     };
   };
 }
 
-export async function getSubIssues(
+export async function getIssueHierarchy(
   client: LinearClient,
   identifier: string
-): Promise<SubIssue[]> {
+): Promise<IssueHierarchy> {
   const query = `
     query($identifier: String!) {
       issue(id: $identifier) {
+        parent {
+          identifier
+          title
+        }
         children(first: 250) {
           nodes {
             identifier
@@ -486,10 +496,10 @@ export async function getSubIssues(
       }
     }
   `;
-  const result = await client.query<SubIssuesResponse>(query, {
+  const result = await client.query<IssueHierarchyResponse>(query, {
     identifier: normalizeIssueIdentifier(identifier),
   });
-  return result.issue.children.nodes;
+  return { parent: result.issue.parent, subIssues: result.issue.children.nodes };
 }
 
 export async function listIssues(

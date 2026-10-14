@@ -28,7 +28,7 @@ linproj issues search "auth" -t ENG    # Search within team
 
 ### Get issue details
 ```bash
-linproj issues get ENG-123             # Full details; lists parent and sub-issue IDs
+linproj issues get ENG-123             # Full details, with its parent and sub-issues
 linproj issues get ENG-123 --json      # JSON for parsing
 ```
 
