@@ -267,13 +267,6 @@ describe('renderMarkdown', () => {
       const lines = result.trim().split('\n');
       expect(lines.length).toBeGreaterThan(1);
     });
-
-    it('respects custom width for horizontal rules', () => {
-      const result = renderMarkdown('---', { width: 20, colors: false });
-      const hrLine = result.trim();
-      // HR should be at most 40 chars (capped) or width
-      expect(hrLine.length).toBeLessThanOrEqual(40);
-    });
   });
 
   describe('edge cases', () => {

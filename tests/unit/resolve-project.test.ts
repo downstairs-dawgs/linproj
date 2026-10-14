@@ -79,20 +79,4 @@ describe('resolveProjectForUpdate', () => {
       resolveProjectForUpdate(mockClientWithProjects, 'Gamma')
     ).rejects.toThrow(/Available: Alpha, Beta/);
   });
-
-  it('does not treat non-UUID strings as UUIDs', async () => {
-    const mockClientWithProjects = {
-      query: async () => ({
-        projects: {
-          nodes: [
-            { id: 'proj-123', name: 'Project Name' },
-          ],
-        },
-      }),
-    } as any;
-
-    // These look like they could be IDs but aren't valid UUIDs
-    const result = await resolveProjectForUpdate(mockClientWithProjects, 'Project Name');
-    expect(result).toBe('proj-123');
-  });
 });

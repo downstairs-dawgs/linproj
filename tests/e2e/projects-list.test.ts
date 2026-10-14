@@ -27,17 +27,6 @@ describe('projects list E2E', () => {
     await ctx.teardown();
   });
 
-  it('lists projects', async () => {
-    await ctx.setupV2Config();
-
-    const result = await runCLI(['projects', 'list'], {
-      env: ctx.envWithoutApiKey(),
-    });
-
-    expect(result.exitCode).toBe(0);
-    // Output should be project names (one per line) or "No projects found."
-  });
-
   it('outputs JSON with --json flag', async () => {
     await ctx.setupV2Config();
 

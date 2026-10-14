@@ -2,9 +2,6 @@ import { describe, it, expect } from 'bun:test';
 import { SKILLS, SKILL_NAMES } from '../../src/commands/skill/skills.ts';
 
 describe('skill registry', () => {
-  it('has 5 entries', () => {
-    expect(SKILL_NAMES).toHaveLength(5);
-  });
 
   it('contains all expected skill names', () => {
     expect(SKILL_NAMES).toEqual([

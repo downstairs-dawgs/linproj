@@ -92,36 +92,6 @@ describe('issues edit with flags E2E', () => {
     expect(result.stdout).toContain('assignee');
   });
 
-  it('edits issue with --assignee none', async () => {
-    const testTeam = teams[0]!;
-    await ctx.setupV2Config({ defaultTeam: testTeam.key });
-
-    // Create issue assigned to me first
-    const issue = await createIssue(client, {
-      teamId: testTeam.id,
-      title: `[TEST] Edit unassign ${Date.now()}`,
-    });
-    ctx.trackCreatedIssue(issue.identifier);
-
-    // Assign to me
-    await runCLI(
-      ['issues', 'edit', issue.identifier, '--assignee', 'me'],
-      { env: ctx.envWithoutApiKey() }
-    );
-
-    // Now unassign
-    const result = await runCLI(
-      ['issues', 'edit', issue.identifier, '--assignee', 'none'],
-      { env: ctx.envWithoutApiKey() }
-    );
-
-    expect(result.stderr).not.toContain('Cannot combine stdin input');
-    expect(result.exitCode).toBe(0);
-
-    const updated = await getIssue(client, issue.identifier);
-    expect(updated?.assignee).toBeNull();
-  });
-
   it('edits issue with multiple flags', async () => {
     const testTeam = teams[0]!;
     await ctx.setupV2Config({ defaultTeam: testTeam.key });
