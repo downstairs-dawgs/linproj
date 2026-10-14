@@ -2,10 +2,7 @@
  * Shared helpers for E2E tests.
  */
 
-import { setDefaultTimeout } from 'bun:test';
 import { join } from 'node:path';
-
-setDefaultTimeout(30_000);
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import {

@@ -40,7 +40,7 @@ LINEAR_API_KEY=$(jq -r 'select(.urlKey == "downstairs-dawgs") | .auth.apiKey' ~/
 if [ -z "$LINEAR_API_KEY" ]; then
   echo "downstairs-dawgs workspace not configured; run: linproj auth login"
 else
-  bun test tests/e2e
+  bun test tests/e2e --timeout 30000
 fi
 ```
 
