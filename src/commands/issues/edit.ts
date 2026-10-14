@@ -22,6 +22,7 @@ import {
   resolveProject,
   resolveTeam,
   resolvePriority,
+  resolveParent,
 } from '../../lib/resolve.ts';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,6 +38,7 @@ export interface EditOptions {
   team?: string;
   dueDate?: string;
   estimate?: string;
+  parent?: string;
   interactive?: boolean;
   json?: boolean;
   quiet?: boolean;
@@ -330,6 +332,16 @@ async function buildUpdateInput(
     }
   }
 
+  if (fields.parent !== undefined) {
+    input.parentId = await resolveParent(client, fields.parent);
+    if (input.parentId !== (issue.parent?.id ?? null)) {
+      changes.parent = {
+        from: issue.parent?.identifier || 'none',
+        to: fields.parent,
+      };
+    }
+  }
+
   if (description !== undefined) {
     input.description = description;
     if (description !== (issue.description || '')) {
@@ -358,6 +370,7 @@ function fieldsFromOptions(options: EditOptions): EditFields {
   if (options.team) fields.team = options.team;
   if (options.dueDate) fields.dueDate = options.dueDate;
   if (options.estimate) fields.estimate = parseFloat(options.estimate);
+  if (options.parent !== undefined) fields.parent = options.parent;
 
   return fields;
 }
@@ -385,7 +398,8 @@ function hasMutationFlags(options: EditOptions): boolean {
     options.project !== undefined ||
     options.team ||
     options.dueDate ||
-    options.estimate
+    options.estimate ||
+    options.parent !== undefined
   );
 }
 
@@ -506,6 +520,7 @@ export function createEditCommand(): Command {
     .option('--team <team>', 'Move to team (team key)')
     .option('--due-date <date>', 'Due date (ISO format) or "none"')
     .option('--estimate <points>', 'Story points estimate')
+    .option('--parent <identifier>', 'Parent issue identifier or "none"')
     .option('-i, --interactive', 'Open in editor')
     .option('--recover <file>', 'Recover from a previous failed edit')
     .option('--json', 'Output as JSON')

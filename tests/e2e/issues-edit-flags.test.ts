@@ -202,4 +202,35 @@ describe('issues edit with flags E2E', () => {
     const after = await getIssue(client, issue.identifier);
     expect(after?.assignee).toBeNull();
   });
+
+  it('moves an issue under a parent with --parent and back out with --parent none', async () => {
+    const testTeam = teams[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key });
+
+    const parent = await createIssue(client, {
+      teamId: testTeam.id,
+      title: `[TEST] Edit parent target ${Date.now()}`,
+    });
+    ctx.trackCreatedIssue(parent.identifier);
+    const issue = await createIssue(client, {
+      teamId: testTeam.id,
+      title: `[TEST] Edit parent ${Date.now()}`,
+    });
+    ctx.trackCreatedIssue(issue.identifier);
+
+    const moved = await runCLI(
+      ['issues', 'edit', issue.identifier, '--parent', parent.identifier],
+      { env: ctx.envWithoutApiKey() }
+    );
+    expect(moved.exitCode).toBe(0);
+    expect(moved.stdout).toContain(`parent: ${parent.identifier} (was: none)`);
+    expect((await getIssue(client, issue.identifier))?.parent?.identifier).toBe(parent.identifier);
+
+    const removed = await runCLI(
+      ['issues', 'edit', issue.identifier, '--parent', 'none'],
+      { env: ctx.envWithoutApiKey() }
+    );
+    expect(removed.exitCode).toBe(0);
+    expect((await getIssue(client, issue.identifier))?.parent).toBeNull();
+  });
 });

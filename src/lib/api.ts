@@ -604,6 +604,7 @@ export interface IssueUpdateInput {
   teamId?: string;
   dueDate?: string | null;
   estimate?: number;
+  parentId?: string | null;
 }
 
 export interface UpdateIssueResponse {

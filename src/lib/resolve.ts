@@ -6,6 +6,7 @@ import {
   getViewer,
   getProjects,
   getTeams,
+  getIssue,
 } from './api.ts';
 
 export async function resolveState(
@@ -80,6 +81,20 @@ export async function resolveProject(
     throw new Error(`Project '${projectName}' not found. Available: ${available}`);
   }
   return project.id;
+}
+
+export async function resolveParent(
+  client: LinearClient,
+  identifier: string
+): Promise<string | null> {
+  if (identifier === 'none' || identifier === '') {
+    return null;
+  }
+  const parent = await getIssue(client, identifier);
+  if (!parent) {
+    throw new Error(`Parent issue '${identifier}' not found`);
+  }
+  return parent.id;
 }
 
 // UUID v4 pattern
