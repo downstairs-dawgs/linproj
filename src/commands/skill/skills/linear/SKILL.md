@@ -38,7 +38,12 @@ linproj issues create --title "Title" -a    # Create and assign to me
 linproj issues create --title "Bug" -p 1    # With urgent priority
 linproj issues create --title "Task" --parent ENG-100   # Sub-issue, in the parent's project
 linproj issues create --title "Bug" --project "Q1 Goals" --state Todo --label bug --assignee me
+linproj issues create --title "Bug" --project none       # No project, even with a default set
 ```
+
+`issues create` uses `--project` if given, else the parent's project (with `--parent`),
+else the workspace default from `linproj config get default-project`. Check the default
+before creating issues; set it with `linproj config set default-project "<name>"`.
 
 ### Quick state changes
 ```bash

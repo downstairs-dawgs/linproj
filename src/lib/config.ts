@@ -35,6 +35,7 @@ export interface WorkspaceProfile {
   urlKey: string;            // Linear org urlKey (for display/reference)
   auth: Auth;
   defaultTeam?: string;      // Team key (e.g., "ENG")
+  defaultProject?: string;   // Project name used by `issues create` when --project is not given
 }
 
 // Union type for config - used internally
@@ -271,6 +272,7 @@ export function requireWorkspaceAuth(): void {
 export interface AuthContext {
   auth: Auth;
   defaultTeam?: string;
+  defaultProject?: string;
 }
 
 /**
@@ -296,7 +298,11 @@ export async function getAuthContext(workspaceName?: string): Promise<AuthContex
     if (!workspace) {
       throw new Error(`Workspace '${workspaceName}' not found.`);
     }
-    return { auth: workspace.auth, defaultTeam: workspace.defaultTeam };
+    return {
+      auth: workspace.auth,
+      defaultTeam: workspace.defaultTeam,
+      defaultProject: workspace.defaultProject,
+    };
   }
 
   const auth = await getAuth();
@@ -308,7 +314,11 @@ export async function getAuthContext(workspaceName?: string): Promise<AuthContex
   const globalConfig = await readGlobalConfig();
   if (getConfigVersion(globalConfig) === 2) {
     const workspace = await getCurrentWorkspace();
-    return { auth, defaultTeam: workspace.defaultTeam };
+    return {
+      auth,
+      defaultTeam: workspace.defaultTeam,
+      defaultProject: workspace.defaultProject,
+    };
   }
 
   return { auth };

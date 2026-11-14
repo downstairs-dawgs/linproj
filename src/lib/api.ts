@@ -696,6 +696,10 @@ interface LabelsResponse {
 interface ProjectsResponse {
   projects: {
     nodes: Project[];
+    pageInfo: {
+      hasNextPage: boolean;
+      endCursor: string | null;
+    };
   };
 }
 
@@ -843,17 +847,27 @@ export async function getUserByEmail(
 
 export async function getProjects(client: LinearClient): Promise<Project[]> {
   const query = `
-    query {
-      projects(first: 250) {
+    query($after: String) {
+      projects(first: 250, after: $after) {
         nodes {
           id
           name
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   `;
-  const result = await client.query<ProjectsResponse>(query);
-  return result.projects.nodes;
+  const projects: Project[] = [];
+  let after: string | null = null;
+  do {
+    const result: ProjectsResponse = await client.query<ProjectsResponse>(query, { after });
+    projects.push(...result.projects.nodes);
+    after = result.projects.pageInfo.hasNextPage ? result.projects.pageInfo.endCursor : null;
+  } while (after);
+  return projects;
 }
 
 export async function updateIssue(

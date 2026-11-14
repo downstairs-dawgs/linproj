@@ -83,6 +83,54 @@ export async function resolveProject(
   return project.id;
 }
 
+export type NewIssueProject =
+  | { source: 'flag'; name: string }
+  | { source: 'parent'; id: string; name: string }
+  | { source: 'default'; name: string }
+  | { source: 'none' };
+
+/**
+ * Picks the project for `issues create`: an explicit --project (including
+ * "none") wins, then the parent's project when the parent has one, then the
+ * workspace's default project.
+ */
+export function chooseNewIssueProject(options: {
+  flag?: string;
+  parentProject?: { id: string; name: string };
+  defaultProject?: string;
+}): NewIssueProject {
+  if (options.flag !== undefined) {
+    return { source: 'flag', name: options.flag };
+  }
+  if (options.parentProject) {
+    return { source: 'parent', ...options.parentProject };
+  }
+  if (options.defaultProject) {
+    return { source: 'default', name: options.defaultProject };
+  }
+  return { source: 'none' };
+}
+
+/**
+ * Explains Linear's "project not in same team as issue" rejection in terms
+ * of where the project came from, so a default the user did not type on
+ * this command is named along with the way out.
+ */
+export function projectTeamMismatchMessage(
+  project: Exclude<NewIssueProject, { source: 'none' }>,
+  teamKey: string
+): string {
+  const origin = {
+    flag: 'Project',
+    parent: "The parent's project",
+    default: 'The default project',
+  }[project.source];
+  return (
+    `${origin} '${project.name}' is not in team ${teamKey}. ` +
+    'Pass --project <name> for a project in that team, or --project none.'
+  );
+}
+
 export async function resolveParent(
   client: LinearClient,
   identifier: string

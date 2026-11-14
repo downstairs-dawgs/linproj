@@ -214,6 +214,7 @@ export class E2ETestContext {
     urlKey?: string;
     apiKey?: string;
     defaultTeam?: string;
+    defaultProject?: string;
   } = {}): Promise<void> {
     const workspaceId = options.workspaceId || 'test-org-id';
     const apiKey = options.apiKey || this.originalLinearApiKey;
@@ -234,6 +235,10 @@ export class E2ETestContext {
 
     if (options.defaultTeam) {
       workspace.defaultTeam = options.defaultTeam;
+    }
+
+    if (options.defaultProject) {
+      workspace.defaultProject = options.defaultProject;
     }
 
     await writeFile(
