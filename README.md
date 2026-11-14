@@ -15,6 +15,7 @@ Or build from source: `bun install && bun run build`
 ```bash
 linproj auth login                              # Authenticate with API key
 linproj config set default-team ENG             # Set default team (optional)
+linproj config set default-project "Q1 Goals"   # Set default project for new issues (optional)
 linproj issues list                             # List issues
 linproj issues create --title "Bug" -a          # Create issue, assign to me
 linproj issues start ENG-123                    # Start working on issue
@@ -25,6 +26,7 @@ linproj issues done ENG-123                     # Mark issue done
 
 - **Multi-workspace support** - Manage multiple Linear organizations, switch between them seamlessly
 - **Default team** - Set per-workspace default team to skip `-t` flags
+- **Default project** - Set per-workspace default project for new issues to skip `--project`
 - **Quick actions** - `issues start` and `issues done` for fast state changes
 - **Flexible editing** - Interactive editor, CLI flags, or piped YAML input
 - **Markdown rendering** - Issue descriptions and comments render with terminal styling
@@ -73,6 +75,7 @@ linproj issues create --title "Bug" -a          # Create and assign to me
 linproj issues create -p 1                      # With priority (1=urgent)
 linproj issues create --title "Bug" --parent ENG-100   # Sub-issue, in the parent's project
 linproj issues create --title "Bug" --project "Q1 Goals" --state Todo --label bug --assignee me
+linproj issues create --title "Bug" --project none     # No project, even with a default project set
 
 # Quick state changes
 linproj issues start ENG-123                    # Move to "started" state
@@ -136,7 +139,14 @@ linproj workspace switch "Acme Corp"            # Switch workspace
 linproj config get default-team                 # Get default team
 linproj config set default-team ENG             # Set default team
 linproj config set default-team ""              # Clear default team
+linproj config get default-project              # Get default project
+linproj config set default-project "Q1 Goals"   # Set default project (must exist)
+linproj config set default-project ""           # Clear default project
 ```
+
+`issues create` picks a project in this order: `--project <name>` (or `--project none`
+for no project), then the parent's project when `--parent` is given and the parent has
+one, then `default-project`, then no project.
 
 ### AI Agent Integration
 

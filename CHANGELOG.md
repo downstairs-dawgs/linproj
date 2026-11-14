@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `default-project` config key: `linproj config set default-project <name>` sets a
+  per-workspace project that `issues create` uses when `--project` is not given. The name
+  is checked against the workspace's projects when it is set. `--project none` creates an
+  issue with no project, and a sub-issue still goes in its parent's project when the
+  parent has one.
+
+### Fixed
+
+- `projects list` and project name lookups page through every project instead of stopping at 250
+
 ## [0.8.0] - 2026-10-13
 
 ### Added
