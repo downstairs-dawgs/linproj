@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'bun:test';
 import { getProjects } from '../../src/lib/api.ts';
-import { chooseNewIssueProject, resolveProjectForUpdate } from '../../src/lib/resolve.ts';
+import {
+  chooseNewIssueProject,
+  projectTeamMismatchMessage,
+  resolveProjectForUpdate,
+} from '../../src/lib/resolve.ts';
 
 // Mock client - not used for tests that return early
 const mockClient = {} as any;
@@ -134,29 +138,44 @@ describe('resolveProjectForUpdate', () => {
 describe('chooseNewIssueProject', () => {
   it('uses --project over the parent and the default', () => {
     expect(
-      chooseNewIssueProject({ flag: 'Alpha', parentProjectId: 'proj-parent', defaultProject: 'Beta' })
+      chooseNewIssueProject({ flag: 'Alpha', parentProject: { id: 'proj-parent', name: 'Parent Project' }, defaultProject: 'Beta' })
     ).toEqual({ source: 'flag', name: 'Alpha' });
   });
 
   it('keeps --project none so it overrides the parent and the default', () => {
     expect(
-      chooseNewIssueProject({ flag: 'none', parentProjectId: 'proj-parent', defaultProject: 'Beta' })
+      chooseNewIssueProject({ flag: 'none', parentProject: { id: 'proj-parent', name: 'Parent Project' }, defaultProject: 'Beta' })
     ).toEqual({ source: 'flag', name: 'none' });
   });
 
   it("uses the parent's project over the default", () => {
     expect(
-      chooseNewIssueProject({ parentProjectId: 'proj-parent', defaultProject: 'Beta' })
-    ).toEqual({ source: 'parent', id: 'proj-parent' });
+      chooseNewIssueProject({ parentProject: { id: 'proj-parent', name: 'Parent Project' }, defaultProject: 'Beta' })
+    ).toEqual({ source: 'parent', id: 'proj-parent', name: 'Parent Project' });
   });
 
   it('falls back to the default when the parent has no project', () => {
     expect(
-      chooseNewIssueProject({ parentProjectId: undefined, defaultProject: 'Beta' })
+      chooseNewIssueProject({ parentProject: undefined, defaultProject: 'Beta' })
     ).toEqual({ source: 'default', name: 'Beta' });
   });
 
   it('uses no project when nothing is set', () => {
     expect(chooseNewIssueProject({})).toEqual({ source: 'none' });
+  });
+});
+
+describe('projectTeamMismatchMessage', () => {
+  it('names the default project, the team, and the flags that get around it', () => {
+    expect(projectTeamMismatchMessage({ source: 'default', name: 'webdocs' }, 'ENG')).toBe(
+      "The default project 'webdocs' is not in team ENG. " +
+        'Pass --project <name> for a project in that team, or --project none.'
+    );
+  });
+
+  it("names the parent's project when it came from --parent", () => {
+    expect(
+      projectTeamMismatchMessage({ source: 'parent', id: 'p', name: 'Q1 Goals' }, 'DOW')
+    ).toContain("The parent's project 'Q1 Goals' is not in team DOW.");
   });
 });

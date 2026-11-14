@@ -6,9 +6,11 @@ import {
   getIssue,
   getProjects,
   createIssue,
+  LinearAPIError,
 } from '../../lib/api.ts';
 import {
   chooseNewIssueProject,
+  projectTeamMismatchMessage,
   resolveAssignee,
   resolveLabels,
   resolveProject,
@@ -244,7 +246,7 @@ Project precedence:
       }
 
       let parentId: string | undefined;
-      let parentProjectId: string | undefined;
+      let parentProject: { id: string; name: string } | undefined;
       if (options.parent) {
         const parentIssue = await getIssue(client, options.parent);
         if (!parentIssue) {
@@ -252,12 +254,12 @@ Project precedence:
           process.exit(1);
         }
         parentId = parentIssue.id;
-        parentProjectId = parentIssue.project?.id;
+        parentProject = parentIssue.project;
       }
 
       const projectChoice = chooseNewIssueProject({
         flag: options.project,
-        parentProjectId,
+        parentProject,
         defaultProject: ctx.defaultProject,
       });
 
@@ -294,17 +296,31 @@ Project precedence:
         process.exit(1);
       }
 
-      const issue = await createIssue(client, {
-        teamId,
-        title: title.trim(),
-        description: options.description,
-        priority,
-        assigneeId,
-        parentId,
-        projectId,
-        stateId,
-        labelIds,
-      });
+      let issue;
+      try {
+        issue = await createIssue(client, {
+          teamId,
+          title: title.trim(),
+          description: options.description,
+          priority,
+          assigneeId,
+          parentId,
+          projectId,
+          stateId,
+          labelIds,
+        });
+      } catch (err) {
+        if (
+          err instanceof LinearAPIError &&
+          projectChoice.source !== 'none' &&
+          /project not in same team/i.test(err.message)
+        ) {
+          const teamKey = teams.find((t) => t.id === teamId)?.key ?? teamId;
+          console.error(`Error: ${projectTeamMismatchMessage(projectChoice, teamKey)}`);
+          process.exit(1);
+        }
+        throw err;
+      }
 
       if (options.parent) {
         console.log(`✓ Created sub-issue ${issue.identifier}: ${issue.title} (parent: ${options.parent})`);
