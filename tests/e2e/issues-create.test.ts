@@ -10,13 +10,44 @@ import { join } from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { E2ETestContext, runCLI } from './harness.ts';
 import {
+  type LinearClient,
   createLabel,
   deleteLabel,
   getIssue,
-  getProjects,
   getViewer,
   getWorkflowStates,
 } from '../../src/lib/api.ts';
+
+interface ProjectWithTeams {
+  id: string;
+  name: string;
+  teamIds: string[];
+}
+
+async function getProjectsWithTeams(client: LinearClient): Promise<ProjectWithTeams[]> {
+  const result = await client.query<{
+    projects: { nodes: { id: string; name: string; teams: { nodes: { id: string }[] } }[] };
+  }>(`
+    query {
+      projects(first: 50) {
+        nodes {
+          id
+          name
+          teams {
+            nodes {
+              id
+            }
+          }
+        }
+      }
+    }
+  `);
+  return result.projects.nodes.map((p) => ({
+    id: p.id,
+    name: p.name,
+    teamIds: p.teams.nodes.map((t) => t.id),
+  }));
+}
 
 describe('issues create E2E', () => {
   const ctx = new E2ETestContext();
@@ -199,14 +230,13 @@ describe('issues create E2E', () => {
   });
 
   it('puts the issue in the default project, and --project none overrides it', async () => {
-    const testTeam = teams[0]!;
     const client = await ctx.getLinearClient();
-    const projects = await getProjects(client);
-    if (projects.length < 1) {
-      throw new Error('At least 1 project required for the default project E2E test');
+    const project = (await getProjectsWithTeams(client)).find((p) => p.teamIds.length > 0);
+    if (!project) {
+      throw new Error('At least 1 project with a team required for the default project E2E test');
     }
-    const project = projects[0]!;
-    await ctx.setupV2Config({ defaultTeam: testTeam.key, defaultProject: project.name });
+    const team = teams.find((t) => project.teamIds.includes(t.id))!;
+    await ctx.setupV2Config({ defaultTeam: team.key, defaultProject: project.name });
 
     const withDefault = await runCLI(
       ['issues', 'create', '--title', `[TEST] Default project create ${Date.now()}`],
@@ -226,6 +256,38 @@ describe('issues create E2E', () => {
 
     expect((await getIssue(client, defaultIdentifier))!.project?.id).toBe(project.id);
     expect((await getIssue(client, noneIdentifier))!.project).toBeFalsy();
+  });
+
+  it('explains a default project that is not in the issue team', async () => {
+    const client = await ctx.getLinearClient();
+    const projects = await getProjectsWithTeams(client);
+    let pair: { project: ProjectWithTeams; teamKey: string } | undefined;
+    for (const project of projects) {
+      const otherTeam = teams.find((t) => !project.teamIds.includes(t.id));
+      if (otherTeam) {
+        pair = { project, teamKey: otherTeam.key };
+        break;
+      }
+    }
+    if (!pair) {
+      throw new Error('A project outside at least one team is required for this E2E test');
+    }
+    await ctx.setupV2Config({ defaultTeam: pair.teamKey, defaultProject: pair.project.name });
+
+    const result = await runCLI(
+      ['issues', 'create', '--title', `[TEST] Should fail ${Date.now()}`],
+      { env: ctx.envWithoutApiKey() }
+    );
+
+    const created = result.stdout.match(/([A-Z]+-\d+):/);
+    if (created) {
+      ctx.trackCreatedIssue(created[1]!);
+    }
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.trim()).toBe(
+      `Error: The default project '${pair.project.name}' is not in team ${pair.teamKey}. ` +
+        'Pass --project <name> for a project in that team, or --project none.'
+    );
   });
 
   it('rejects an unknown state before creating the issue', async () => {
