@@ -4,9 +4,11 @@ import {
   LinearClient,
   getTeams,
   getIssue,
+  getProjects,
   createIssue,
 } from '../../lib/api.ts';
 import {
+  chooseNewIssueProject,
   resolveAssignee,
   resolveLabels,
   resolveProject,
@@ -117,6 +119,24 @@ async function promptText(prompt: string): Promise<string> {
   });
 }
 
+async function resolveDefaultProject(
+  client: LinearClient,
+  name: string
+): Promise<string> {
+  const projects = await getProjects(client);
+  const project = projects.find(
+    (p) => p.name.toLowerCase() === name.toLowerCase()
+  );
+  if (!project) {
+    throw new Error(
+      `Default project '${name}' not found.\n` +
+        'Pass --project <name> or --project none, or change it with ' +
+        '`linproj config set default-project <name>`.'
+    );
+  }
+  return project.id;
+}
+
 interface CreateOptions {
   team?: string;
   title?: string;
@@ -144,10 +164,20 @@ export function createCreateCommand(): Command {
       'Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low'
     )
     .option('--parent <identifier>', 'Parent issue identifier (creates a sub-issue)')
-    .option('--project <project>', "Project name (defaults to the parent's project)")
+    .option(
+      '--project <project>',
+      'Project name, or "none" for no project. Defaults to the parent\'s project, ' +
+        'then to `linproj config get default-project`'
+    )
     .option('--state <state>', 'State name')
     .option('--label <label>', 'Label (repeatable)', collect)
     .option('-w, --workspace <name>', 'Use a different workspace')
+    .addHelpText('after', `
+Project precedence:
+  1. --project <name>, or --project none for no project
+  2. the parent's project, when --parent is given and the parent has one
+  3. the workspace default (linproj config set default-project <name>)
+  4. no project`)
     .action(async (options: CreateOptions) => {
       let ctx;
       try {
@@ -214,7 +244,7 @@ export function createCreateCommand(): Command {
       }
 
       let parentId: string | undefined;
-      let projectId: string | undefined;
+      let parentProjectId: string | undefined;
       if (options.parent) {
         const parentIssue = await getIssue(client, options.parent);
         if (!parentIssue) {
@@ -222,9 +252,16 @@ export function createCreateCommand(): Command {
           process.exit(1);
         }
         parentId = parentIssue.id;
-        projectId = parentIssue.project?.id;
+        parentProjectId = parentIssue.project?.id;
       }
 
+      const projectChoice = chooseNewIssueProject({
+        flag: options.project,
+        parentProjectId,
+        defaultProject: ctx.defaultProject,
+      });
+
+      let projectId: string | undefined;
       let assigneeId: string | undefined;
       let stateId: string | undefined;
       let labelIds: string[] | undefined;
@@ -233,8 +270,18 @@ export function createCreateCommand(): Command {
         if (assignee) {
           assigneeId = (await resolveAssignee(client, assignee)) ?? undefined;
         }
-        if (options.project) {
-          projectId = (await resolveProject(client, options.project)) ?? undefined;
+        switch (projectChoice.source) {
+          case 'flag':
+            projectId = (await resolveProject(client, projectChoice.name)) ?? undefined;
+            break;
+          case 'parent':
+            projectId = projectChoice.id;
+            break;
+          case 'default':
+            projectId = await resolveDefaultProject(client, projectChoice.name);
+            break;
+          case 'none':
+            break;
         }
         if (options.state) {
           stateId = await resolveState(client, teamId, options.state);

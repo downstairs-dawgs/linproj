@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { getProjects } from '../../src/lib/api.ts';
-import { resolveProjectForUpdate } from '../../src/lib/resolve.ts';
+import { chooseNewIssueProject, resolveProjectForUpdate } from '../../src/lib/resolve.ts';
 
 // Mock client - not used for tests that return early
 const mockClient = {} as any;
@@ -128,5 +128,35 @@ describe('resolveProjectForUpdate', () => {
     await expect(
       resolveProjectForUpdate(mockClientWithProjects, 'Gamma')
     ).rejects.toThrow(/Available: Alpha, Beta/);
+  });
+});
+
+describe('chooseNewIssueProject', () => {
+  it('uses --project over the parent and the default', () => {
+    expect(
+      chooseNewIssueProject({ flag: 'Alpha', parentProjectId: 'proj-parent', defaultProject: 'Beta' })
+    ).toEqual({ source: 'flag', name: 'Alpha' });
+  });
+
+  it('keeps --project none so it overrides the parent and the default', () => {
+    expect(
+      chooseNewIssueProject({ flag: 'none', parentProjectId: 'proj-parent', defaultProject: 'Beta' })
+    ).toEqual({ source: 'flag', name: 'none' });
+  });
+
+  it("uses the parent's project over the default", () => {
+    expect(
+      chooseNewIssueProject({ parentProjectId: 'proj-parent', defaultProject: 'Beta' })
+    ).toEqual({ source: 'parent', id: 'proj-parent' });
+  });
+
+  it('falls back to the default when the parent has no project', () => {
+    expect(
+      chooseNewIssueProject({ parentProjectId: undefined, defaultProject: 'Beta' })
+    ).toEqual({ source: 'default', name: 'Beta' });
+  });
+
+  it('uses no project when nothing is set', () => {
+    expect(chooseNewIssueProject({})).toEqual({ source: 'none' });
   });
 });

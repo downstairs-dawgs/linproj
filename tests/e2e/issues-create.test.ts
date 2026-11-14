@@ -13,6 +13,7 @@ import {
   createLabel,
   deleteLabel,
   getIssue,
+  getProjects,
   getViewer,
   getWorkflowStates,
 } from '../../src/lib/api.ts';
@@ -195,6 +196,36 @@ describe('issues create E2E', () => {
     } finally {
       await deleteLabel(client, label.id);
     }
+  });
+
+  it('puts the issue in the default project, and --project none overrides it', async () => {
+    const testTeam = teams[0]!;
+    const client = await ctx.getLinearClient();
+    const projects = await getProjects(client);
+    if (projects.length < 1) {
+      throw new Error('At least 1 project required for the default project E2E test');
+    }
+    const project = projects[0]!;
+    await ctx.setupV2Config({ defaultTeam: testTeam.key, defaultProject: project.name });
+
+    const withDefault = await runCLI(
+      ['issues', 'create', '--title', `[TEST] Default project create ${Date.now()}`],
+      { env: ctx.envWithoutApiKey() }
+    );
+    expect(withDefault.exitCode).toBe(0);
+    const defaultIdentifier = withDefault.stdout.match(/([A-Z]+-\d+):/)![1]!;
+    ctx.trackCreatedIssue(defaultIdentifier);
+
+    const withNone = await runCLI(
+      ['issues', 'create', '--title', `[TEST] No project create ${Date.now()}`, '--project', 'none'],
+      { env: ctx.envWithoutApiKey() }
+    );
+    expect(withNone.exitCode).toBe(0);
+    const noneIdentifier = withNone.stdout.match(/([A-Z]+-\d+):/)![1]!;
+    ctx.trackCreatedIssue(noneIdentifier);
+
+    expect((await getIssue(client, defaultIdentifier))!.project?.id).toBe(project.id);
+    expect((await getIssue(client, noneIdentifier))!.project).toBeFalsy();
   });
 
   it('rejects an unknown state before creating the issue', async () => {

@@ -83,6 +83,34 @@ export async function resolveProject(
   return project.id;
 }
 
+export type NewIssueProject =
+  | { source: 'flag'; name: string }
+  | { source: 'parent'; id: string }
+  | { source: 'default'; name: string }
+  | { source: 'none' };
+
+/**
+ * Picks the project for `issues create`: an explicit --project (including
+ * "none") wins, then the parent's project when the parent has one, then the
+ * workspace's default project.
+ */
+export function chooseNewIssueProject(options: {
+  flag?: string;
+  parentProjectId?: string;
+  defaultProject?: string;
+}): NewIssueProject {
+  if (options.flag !== undefined) {
+    return { source: 'flag', name: options.flag };
+  }
+  if (options.parentProjectId) {
+    return { source: 'parent', id: options.parentProjectId };
+  }
+  if (options.defaultProject) {
+    return { source: 'default', name: options.defaultProject };
+  }
+  return { source: 'none' };
+}
+
 export async function resolveParent(
   client: LinearClient,
   identifier: string
